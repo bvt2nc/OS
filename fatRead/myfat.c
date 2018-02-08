@@ -69,7 +69,7 @@ int main() {
     OS_cd("PEOPLE");
     OS_readDir(".");
     printf("==============================\n");
-    OS_cd("ABK2YH");
+    OS_cd("ABK2Y");
     OS_readDir(".");
     OS_cd("/MEDIA");
 
@@ -176,7 +176,6 @@ void printDir(dirEnt dir)
 {
 	int i, attr;
 	attr = dir.dir_attr;
-	printf("Filename: ");
 	char c;
    	for(i = 0; i < 11; i++)
    	{
@@ -278,7 +277,7 @@ int OS_cd(const char *path)
 {	
 	if(start == 0)
 		init();
-	
+
 	if(path[0] == '/')
 	{
 		printf("absolute \n");
@@ -287,8 +286,27 @@ int OS_cd(const char *path)
 
 	dirEnt * lsDir = OS_readDir(".");
 	dirEnt dir;
-	int i, compare;
+	int i, compare, j;
+	int terminate = 0;
 	char * dirNamee;
+	char * realPath = (char *)malloc(sizeof(char) * 8);
+
+	for(i = 0; i < 8; i++)
+	{
+		if(terminate == 1)
+		{
+			realPath[i] = 32;
+			continue;
+		}
+
+		if(path[i] == 0)
+		{
+			realPath[i] = 32;
+			terminate = 1;
+		}
+		else
+			realPath[i] = path[i];
+	}
 
 	for(i = 0; i < 128; i++)
 	{
@@ -300,7 +318,10 @@ int OS_cd(const char *path)
 		}
 
 		dirNamee = dirName(dir);
-		if(strcmp(path, dirNamee) == 0)
+
+		compare = strcmp(realPath, dirNamee);
+		//printf("compare: %d \n", compare); 
+		if(compare == 0)
 		{
 			printf("match! \n");
 			cwdCluster = dir.dir_fstClusLO;
@@ -324,17 +345,13 @@ int cdAbsolute(const char * path)
 
 char * dirName(dirEnt dir)
 {
-	char str[8];
+	char * str = (char *)malloc(sizeof(char) * 8);
 	int i;
    	for(i = 0; i < 8; i++)
    	{
-   		if(dir.dir_name[i] == 32)
-   			continue;
-
    		str[i] = dir.dir_name[i];
+   		//printf("%d ", str[i]);
    	}
-
-   	//printf("%s \n", str);
    	return str;
 }
 
@@ -371,7 +388,7 @@ dirEnt * OS_readDir(const char *dirname)
 
 	   	ls[count] = dir;
 	   	count++;
-	   	printDir(dir);
+	   	//printDir(dir);
 	}
 
 	printf("============================\n");
