@@ -4,37 +4,6 @@
 #include <stdint.h>
 #include <string.h>
 
-typedef struct __attribute__ ((packed)) {
-
-        uint8_t bs_jmpBoot[3];          // jmp instr to boot code
-        uint8_t bs_oemName[8];          // indicates what system formatted this field, default=MSWIN4.1
-        uint16_t bpb_bytesPerSec;       // Count of bytes per sector
-        uint8_t bpb_secPerClus;         // no.of sectors per allocation unit
-        uint16_t bpb_rsvdSecCnt;        // no.of reserved sectors in the resercved region of the volume starting at 1st sector
-        uint8_t bpb_numFATs;            // The count of FAT datastructures on the volume
-        uint16_t bpb_rootEntCnt;        // Count of 32-byte entries in root dir, for FAT32 set to 0
-        uint16_t bpb_totSec16;          // total sectors on the volume
-        uint8_t bpb_media;              // value of fixed media
-        uint16_t bpb_FATSz16;           // count of sectors occupied by one FAT
-        uint16_t bpb_secPerTrk;         // sectors per track for interrupt 0x13, only for special devices
-        uint16_t bpb_numHeads;          // no.of heads for intettupr 0x13
-        uint32_t bpb_hiddSec;           // count of hidden sectors
-        uint32_t bpb_totSec32;          // count of sectors on volume
-        uint32_t bpb_FATSz32;           // define for FAT32 only
-        uint16_t bpb_extFlags;          // Reserved for FAT32
-        uint16_t bpb_FSVer;             // Major/Minor version num
-        uint32_t bpb_RootClus;          // Clus num of 1st clus of root dir
-        uint16_t bpb_FSInfo;            // sec num of FSINFO struct
-        uint16_t bpb_bkBootSec;         // copy of boot record
-        uint8_t bpb_reserved[12];       // reserved for future expansion
-        uint8_t bs_drvNum;              // drive num
-        uint8_t bs_reserved1;           // for ue by NT
-        uint8_t bs_bootSig;             // extended boot signature
-        uint32_t bs_volID;              // volume serial number
-        uint8_t bs_volLab[11];          // volume label
-        uint8_t bs_fileSysTye[8];       // FAT12, FAT16 etc
-} bpbFat321 ;
-
 int start = 0;
 int bytesPerClus;
 int rootDirSectors;
@@ -63,11 +32,10 @@ unsigned int * clusterChain(int cluster);
 char * dirName(dirEnt dir, int file);
 int cdAbsolute(const char * path);
 dirEnt * openDir;
-//int openDirSize;
 
 int main() {
 
-    OS_cd("PEOPLE");
+    /*OS_cd("PEOPLE");
     OS_readDir(".");
     OS_cd("ABK2Y");
     OS_readDir(".");
@@ -78,7 +46,7 @@ int main() {
     OS_open("CONGRATSTXT");
     OS_cd("MEDIA");
     OS_open("EPAA22~1JPG");
-    /*init();
+    init();
     readFatTable(fd);
     recurseThroughDir(fd, firstClusterSector(2) * bpb.bpb_bytesPerSec);*/
 
@@ -111,7 +79,6 @@ void init()
    	numDataSec = totSec - (bpb.bpb_rsvdSecCnt + (bpb.bpb_numFATs * FATSz) + rootDirSectors);
    	numClusters = numDataSec / bpb.bpb_secPerClus;
    	openDir = (dirEnt*)malloc(sizeof(dirEnt) * 128);
-   	//openDirSize = 1;
 
    	start = 1;
    	cwdCluster = 2; //default to root directory
@@ -149,12 +116,9 @@ void recurseThroughDir(FILE * fd, int offset)
 {
 	int inc;
    	dirEnt dir;
-   	//printf("offset: %d\n", offset);
    	for(inc = 0; inc < bytesPerClus - 64; inc += 32)
    	{
-   		//printf("inc: %d\n", inc);
 	   	fseek(fd, offset + inc, SEEK_SET);
-	   	//printf("offset first cluster: %d \n", firstClusterSector(3));
 	   	fread(&dir, sizeof(dirEnt), 1, fd);
 	   	if(dir.dir_name[0] == 0x00)
 	   		break;
@@ -173,7 +137,7 @@ void recurseThroughDir(FILE * fd, int offset)
 	   	}
 	   	else
 	   	{
-	   		//unsigned int * chain = clusterChain(dir.dir_fstClusLO);
+	   		unsigned int * chain = clusterChain(dir.dir_fstClusLO);
 	   	}
 	   	//printf("===================================\n");
 	}
@@ -216,26 +180,15 @@ unsigned int tableValue(int cluster)
 	else
 		fatOffset = cluster * 4;
 	
-	//printf("fatOffset: %d \n", fatOffset);
-	//unsigned int fatSector = bpb.bpb_rsvdSecCnt + (fatOffset / bpb.bpb_bytesPerSec);
 	unsigned int fatSector = (fatOffset / bpb.bpb_bytesPerSec);
-	//printf("fatSector: %d \n", fatSector);
-	//printf("fatSector offset: %d \n", fatSector * bpb.bpb_bytesPerSec / 32);
 	unsigned int fatEntOffset = fatOffset % bpb.bpb_bytesPerSec;
-	//printf("fatEntOffset: %d \n", fatEntOffset);
 
-	//printf("tableValue: 0x%x: ", *(unsigned int*)&fatTable[fatOffset]);
-	//return *(unsigned int*)&fatTable[(fatSector / 16) + fatOffset] & 0x0FFFFFFF;
 	return *(unsigned int*)&fatTable[cluster] & 0x0FFFFFFF;
 }
 
 int clusterChainSize(int cluster, int size)
 {
-	//if(size >= 10)
-	//	return size;
-
 	int value = tableValue(cluster);
-	//printf("table value: 0x%x: \n", value);
 	size++;
 
 	if(value >= 0x0FFFFFF8)
@@ -250,11 +203,8 @@ unsigned int * clusterChain(int cluster)
 {
 	int value = tableValue(cluster);
 	int size = clusterChainSize(cluster, 0);
-	//printf("size: %d", size);
 	unsigned int * chain = (unsigned int*)malloc(sizeof(unsigned int) * size);
 	chain[0] = cluster;
-	//printf("cluster chain: ");
-	//printf("0x%x ", chain[0]);
 
 	int i;
 	for(i = 1; i < size; i++)
@@ -271,19 +221,9 @@ unsigned int * clusterChain(int cluster)
 void readFatTable(FILE * fd)
 {
 	fatTable = (uint32_t *)malloc(FATSz * bpb.bpb_bytesPerSec);
-	//printf("size of fatTable: %d \n", sizeof(fatTable));
-	//printf("bytes in fat table: %d \n", bpb.bpb_numFATs * FATSz * bpb.bpb_bytesPerSec);
-	
-
-
 	fseek(fd, bpb.bpb_rsvdSecCnt * bpb.bpb_bytesPerSec, SEEK_SET);
-	//fatTable = (uint16_t *)malloc(sizeof(uint16_t*) * 5000);
-	//fread(fatTable, sizeof(uint16_t *), 5000, fd);
-
-	//read(fd, fatTable, FATSz * bpb.bpb_bytesPerSec / 4);
-
 	fread(fatTable, sizeof(uint32_t), FATSz * bpb.bpb_bytesPerSec / sizeof(uint32_t), fd);
-	/*fread(&fatTable, 4, 500, fd);
+	/*
 	printf("done reading \n");
 	int i;
 	printf("length: %d \n", sizeof(fatTable));
@@ -300,7 +240,6 @@ int OS_cd(const char *path)
 
 	if(path[0] == '/')
 	{
-		//printf("absolute \n");
 		cwdCluster = 2;
 		return cdAbsolute(path);
 	}
@@ -335,23 +274,13 @@ int OS_cd(const char *path)
 			realPath[i] = path[i];
 	}
 
-	/*for(i = 0; i < 8; i++)
-	{
-		printf("%d ", realPath[i]);
-	}
-	printf("\n");*/
-
 	for(i = 0; i < 128; i++)
 	{
 		dir = lsDir[i];
 		if(dir.dir_name[0] == 0)
-		{
-			printf("cannot find, at index: %d \n", i);
 			break;
-		}
 
 		dirNamee = dirName(dir, 0);
-
 		compare = strcmp(realPath, dirNamee);
 		//printf("compare: %d \n", compare); 
 		if(compare == 0)
@@ -362,23 +291,16 @@ int OS_cd(const char *path)
 			if(cwdCluster == 0)
 				cwdCluster = 2;
 
-			/*printDir(dir);
-			printf("cwdCluster after cd: %d \n", cwdCluster);
-			printf("===================\n");*/
 			return 1;
 		}
 
 	}
-
-	//printf("failed\n");
 
 	return -1;
 }
 
 int cdAbsolute(const char * path)
 {
-	//printf("path: %s \n", path);
-
 	int i, status;
 	char * subPath = (char *)malloc(sizeof(char) * 8);
 	int index = 0;
@@ -405,7 +327,6 @@ int cdAbsolute(const char * path)
 		}
 	}
 
-	//printf("subPath: %s \n", subPath);
 	status = OS_cd(subPath);
 	if(status == -1)
 		return -1;
@@ -432,12 +353,10 @@ char * dirName(dirEnt dir, int file)
 
 dirEnt * OS_readDir(const char *dirname)
 {
-	//Assume this acts like ls
 	int tempCWD = 0;
 
 	if(dirname[0] != '.')
 	{
-		//printf("ls absolute path \n");
 		tempCWD = cwdCluster;
 		//printf("tempCWD: %d \n", tempCWD);
 		OS_cd(dirname);
@@ -451,9 +370,7 @@ dirEnt * OS_readDir(const char *dirname)
 	int inc, offset;
 	int count = 0;
    	dirEnt dir;
-
    	//printf("cwdCluster %d \n", cwdCluster);
-
    	offset = firstClusterSector(cwdCluster) * bpb.bpb_bytesPerSec;
 
    	for(inc = 0; inc < bytesPerClus - 64; inc += 32)
@@ -507,7 +424,6 @@ int OS_open(const char *path)
 		else
 			realPath[i] = path[i];
 	}
-	printf("realPath: %s \n", realPath);
 
 	for(i = 0; i < 128; i++)
 	{
@@ -585,7 +501,6 @@ int OS_read(int fildes, void *buf, int nbyte, int offset)
 	bytesRead += bytesToRead;
 	firstCluster++;
 	bytesToRead = nbyte - bytesRead;
-	printf("bytes left to read: %d \n", bytesToRead);
 
 	while(bytesRead < nbyte || bytesToRead > 0)
 	{
@@ -598,13 +513,10 @@ int OS_read(int fildes, void *buf, int nbyte, int offset)
    		fread(buf + bytesRead, bytesToRead, 1, fd);
    		bytesRead += bytesToRead;
    		bytesToRead = nbyte - bytesRead;
-   		printf("bytes left to read: %d \n", bytesToRead);
    		firstCluster++;
 	}
 
    	return 1;
-
-	//return -1;
 }
 
 
