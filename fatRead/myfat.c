@@ -259,7 +259,7 @@ unsigned int * clusterChain(int cluster)
 	for(i = 1; i < size; i++)
 	{
 		chain[i] = tableValue(chain[i - 1]);
-		printf("0x%x ", chain[i]);
+		//printf("0x%x ", chain[i]);
 	}
 	printf("\n");
 
@@ -551,8 +551,30 @@ int OS_read(int fildes, void *buf, int nbyte, int offset)
 	if(dir.dir_name[0] == 0x00)
 		return -1;
 
-   	fseek(fd, firstClusterSector(dir.dir_fstClusLO) * bpb.bpb_bytesPerSec, SEEK_SET);
-   	fread(buf, nbyte, 1, fd);
+	unsigned int * chain = clusterChain(dir.dir_fstClusLO);
+
+	//if(nbyte > (chain * bytesPerClus) || offset > (chain * bytesPerClus))
+	//	return -1;
+
+	int bytesRead = 0;
+	int firstCluster = offset / bytesPerClus;
+	int firstClusterOffset = offset % bytesPerClus;
+	int bytesToRead = nbyte;
+
+	if(nbyte > bytesPerClus - firstClusterOffset)
+		bytesToRead = bytesPerClus - firstClusterOffset;
+
+	fseek(fd, (firstClusterSector((int)chain[firstCluster]) * bpb.bpb_bytesPerSec) + firstClusterOffset, SEEK_SET);
+	fread(buf, bytesToRead, 1, fd);
+	bytesRead += bytesToRead;
+
+	while(bytesRead < nbyte)
+	{
+		return -1;
+		fseek(fd, firstClusterSector(dir.dir_fstClusLO) * bpb.bpb_bytesPerSec, SEEK_SET);
+   		fread(buf, nbyte, 1, fd);
+	}
+
    	return 1;
 
 	//return -1;
