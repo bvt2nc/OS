@@ -482,6 +482,9 @@ dirEnt * OS_readDir(const char *dirname)
 int OS_open(const char *path)
 {
 
+	if(start == 0)
+		init();
+
 	dirEnt * dir = OS_readDir(".");
 	int i, j;
 	int terminate = 0;
@@ -535,6 +538,9 @@ int OS_open(const char *path)
 
 int OS_close(int fd)
 {
+	if(start == 0)
+		init();
+
 	dirEnt dir = openDir[fd];
 	if(dir.dir_name[0] == 0x00)
 		return -1;
@@ -546,12 +552,16 @@ int OS_close(int fd)
 
 int OS_read(int fildes, void *buf, int nbyte, int offset)
 {
+
+	if(start == 0)
+		init();
 	
 	dirEnt dir = openDir[fildes];
 	if(dir.dir_name[0] == 0x00)
 		return -1;
 
 	unsigned int * chain = clusterChain(dir.dir_fstClusLO);
+	printf("finished cluster chaining \n");
 
 	//if(nbyte > (chain * bytesPerClus) || offset > (chain * bytesPerClus))
 	//	return -1;
