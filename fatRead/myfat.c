@@ -587,7 +587,7 @@ int OS_read(int fildes, void *buf, int nbyte, int offset)
 	bytesToRead = nbyte - bytesRead;
 	printf("bytes left to read: %d \n", bytesToRead);
 
-	while(bytesRead < nbyte || bytesToRead <= 0)
+	while(bytesRead < nbyte || bytesToRead > 0)
 	{
 		if(bytesToRead > bytesPerClus)
 		{
