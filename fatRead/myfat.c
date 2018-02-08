@@ -111,7 +111,7 @@ void init()
    	numDataSec = totSec - (bpb.bpb_rsvdSecCnt + (bpb.bpb_numFATs * FATSz) + rootDirSectors);
    	numClusters = numDataSec / bpb.bpb_secPerClus;
    	openDir = (dirEnt*)malloc(sizeof(dirEnt) * 128);
-   	openDirSize = 0;
+   	openDirSize = 1;
 
    	start = 1;
    	cwdCluster = 2; //default to root directory
@@ -483,7 +483,7 @@ int OS_open(const char *path)
 {
 
 	dirEnt * dir = OS_readDir(".");
-	int i;
+	int i, j;
 	int terminate = 0;
 	char * realPath = (char *)malloc(sizeof(char) * 8);
 
@@ -515,10 +515,19 @@ int OS_open(const char *path)
 		//printf("dirName: %s \n", dirName(dir[i], 1));
 		if(strcmp(realPath, dirName(dir[i], 1)) == 0)
 		{
-			printf("fd: %d\n", openDirSize);
-			openDir[openDirSize] = dir[i];
-			openDirSize++;
-			return openDirSize - 1;
+
+			for(j = 0; j < openDirSize; j++)
+			{
+				if(openDir[j].dir_name[0] == 0x00)
+				{
+					openDir[j] = dir[i];
+					openDirSize++;
+					return j;
+				}
+			}
+
+			printf("Too many files opened. Please close a file\n");
+			break;
 		}
 	}
 
@@ -527,10 +536,6 @@ int OS_open(const char *path)
 
 int OS_close(int fd)
 {
-
-	if(fd > openDirSize)
-		return -1;
-
 	dirEnt dir = openDir[fd];
 	if(dir.dir_name[0] == 0x00)
 		return -1;
