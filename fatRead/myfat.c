@@ -60,7 +60,7 @@ unsigned int tableValue(int cluster);
 void readFatTable(FILE *fd);
 int clusterSize(int cluster, int size);
 unsigned int * clusterChain(int cluster);
-char * dirName(dirEnt dir);
+char * dirName(dirEnt dir, int file);
 int cdAbsolute(const char * path);
 
 int main() {
@@ -342,7 +342,7 @@ int OS_cd(const char *path)
 			break;
 		}
 
-		dirNamee = dirName(dir);
+		dirNamee = dirName(dir, 0);
 
 		compare = strcmp(realPath, dirNamee);
 		//printf("compare: %d \n", compare); 
@@ -405,11 +405,16 @@ int cdAbsolute(const char * path)
 	return 1;
 }
 
-char * dirName(dirEnt dir)
+char * dirName(dirEnt dir, int file)
 {
 	char * str = (char *)malloc(sizeof(char) * 8);
 	int i;
-   	for(i = 0; i < 8; i++)
+
+	int max = 8;
+	if(file == 1)
+		max = 11;
+
+   	for(i = 0; i < max; i++)
    	{
    		str[i] = dir.dir_name[i];
    		//printf("%d ", str[i]);
@@ -430,7 +435,7 @@ dirEnt * OS_readDir(const char *dirname)
 		OS_cd(dirname);
 	}
 
-	dirEnt* ls = (dirEnt*)malloc(sizeof(dirEnt) * 127);
+	dirEnt* ls = (dirEnt*)malloc(sizeof(dirEnt) * 128);
 
 	if(start == 0)
 		init();
@@ -469,6 +474,40 @@ dirEnt * OS_readDir(const char *dirname)
 
 int OS_open(const char *path)
 {
+
+	dirEnt * dir = OS_readDir(".");
+	int i;
+	int terminate = 0;
+	char * realPath = (char *)malloc(sizeof(char) * 8);
+
+	for(i = 0; i < 8; i++)
+	{
+		if(terminate == 1)
+		{
+			realPath[i] = 32;
+			continue;
+		}
+
+		if(path[i] == 0)
+		{
+			realPath[i] = 32;
+			terminate = 1;
+		}
+		else
+			realPath[i] = path[i];
+	}
+
+	for(i = 0; i < 128; i++)
+	{
+		if(dir[i].dir_name[0] == 0x00)
+		{
+			break;
+		}
+
+		if(strcmp(realPath, dirName(dir[i], 1)))
+			return i;
+	}
+
 	return -1;
 }
 
@@ -481,6 +520,16 @@ int OS_read(int fildes, void *buf, int nbyte, int offset)
 {
 	return -1;
 }
+
+
+
+
+//========================================================WRITE=================================================
+
+
+
+
+
 
 int OS_rmdir(const char *path)
 {
