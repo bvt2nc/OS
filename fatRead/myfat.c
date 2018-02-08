@@ -79,7 +79,6 @@ int main() {
     OS_cd("MEDIA");
     OS_open("EPAA22~1JPG");
     /*init();
-    readFatTable(fd);
     recurseThroughDir(fd, firstClusterSector(2) * bpb.bpb_bytesPerSec);*/
 
     return 0;
@@ -115,6 +114,7 @@ void init()
 
    	start = 1;
    	cwdCluster = 2; //default to root directory
+    	readFatTable(fd);
    	
    	/*printf("end init \n");
    	dirEnt *dir = (dirEnt*)malloc(numClusters * bytesPerClus);
@@ -251,7 +251,7 @@ unsigned int * clusterChain(int cluster)
 	int size = clusterChainSize(cluster, 0);
 	//printf("size: %d", size);
 	unsigned int * chain = (unsigned int*)malloc(sizeof(unsigned int) * size);
-	chain[0] = tableValue(cluster);
+	chain[0] = cluster;
 	printf("cluster chain: 0x%x ", cluster);
 	printf("0x%x ", chain[0]);
 
@@ -562,6 +562,7 @@ int OS_read(int fildes, void *buf, int nbyte, int offset)
 
 	unsigned int * chain = clusterChain(dir.dir_fstClusLO);
 	printf("finished cluster chaining \n");
+	printf("chain[0]: 0x%x \n", (int)chain[0]);
 
 	//if(nbyte > (chain * bytesPerClus) || offset > (chain * bytesPerClus))
 	//	return -1;
@@ -577,10 +578,12 @@ int OS_read(int fildes, void *buf, int nbyte, int offset)
 	printf("firstCluster: %d \n", firstCluster);
 	printf("firstClusterOffset: %d \n", firstClusterOffset);
 	printf("bytesToRead: %d \n", bytesToRead);
+	printf("firstChainCluster: 0x%x \n", (int)chain[firstCluster]);
 
 	fseek(fd, (firstClusterSector((int)chain[firstCluster]) * bpb.bpb_bytesPerSec) + firstClusterOffset, SEEK_SET);
 	fread(buf, bytesToRead, 1, fd);
 	bytesRead += bytesToRead;
+
 
 	while(bytesRead < nbyte)
 	{
