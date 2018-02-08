@@ -62,6 +62,8 @@ int clusterSize(int cluster, int size);
 unsigned int * clusterChain(int cluster);
 char * dirName(dirEnt dir, int file);
 int cdAbsolute(const char * path);
+dirEnt * openDir;
+int openDirSize;
 
 int main() {
 
@@ -108,6 +110,8 @@ void init()
    	firstDataSector = bpb.bpb_rsvdSecCnt + (bpb.bpb_numFATs * FATSz) + rootDirSectors;
    	numDataSec = totSec - (bpb.bpb_rsvdSecCnt + (bpb.bpb_numFATs * FATSz) + rootDirSectors);
    	numClusters = numDataSec / bpb.bpb_secPerClus;
+   	openDir = (dirEnt*)malloc(sizeof(dirEnt) * 128);
+   	openDirSize = 0;
 
    	start = 1;
    	cwdCluster = 2; //default to root directory
@@ -508,11 +512,13 @@ int OS_open(const char *path)
 			break;
 		}
 
-		printf("dirName: %s \n", dirName(dir[i], 1));
+		//printf("dirName: %s \n", dirName(dir[i], 1));
 		if(strcmp(realPath, dirName(dir[i], 1)) == 0)
 		{
-			printf("fd: %d\n", dir[i].dir_fstClusLO);
-			return dir[i].dir_fstClusLO;
+			printf("fd: %d\n", openDirSize);
+			openDir[openDirSize] = dir[i];
+			openDirSize++;
+			return openDirSize - 1;
 		}
 	}
 
@@ -521,7 +527,16 @@ int OS_open(const char *path)
 
 int OS_close(int fd)
 {
-	printf("in close \n");
+
+	if(fd > openDirSize)
+		return -1;
+
+	dirEnt dir = openDir[fd];
+	if(dir.dir_name[0] == 0x00)
+		return -1;
+	dirEnt *emptyDir = (dirEnt*)malloc(sizeof(dirEnt));
+	openDir[fd] = *emptyDir;
+
 	return 1;
 }
 
