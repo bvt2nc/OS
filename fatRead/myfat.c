@@ -521,11 +521,13 @@ int OS_open(const char *path)
 
 int OS_close(int fd)
 {
+	printf("in close \n");
 	return 1;
 }
 
 int OS_read(int fildes, void *buf, int nbyte, int offset)
 {
+	printf("in read\n");
 	return -1;
 }
 
