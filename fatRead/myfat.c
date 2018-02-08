@@ -46,7 +46,7 @@ int numClusters; // number of DATA clusters
 bpbFat32 bpb;
 //int count = 0;
 int fatType = 0;
-uint16_t *fatTable;
+uint32_t *fatTable;
 //uint16_t fatTable[1000];
 int EOC;
 int cwdCluster;
@@ -65,14 +65,17 @@ int cdAbsolute(const char * path);
 
 int main() {
 
-	//printf("start");
     OS_cd("PEOPLE");
     OS_readDir(".");
     OS_cd("ABK2Y");
     OS_readDir(".");
     OS_cd("/PEOPLE/ABK2Y");
+    OS_cd("~");
     OS_readDir(".");
-    OS_readDir("/MEDIA");
+    OS_readDir("/PEOPLE/ABK2Y");
+    /*init();
+    readFatTable(fd);
+    recurseThroughDir(fd, firstClusterSector(2) * bpb.bpb_bytesPerSec);*/
 
     return 0;
 }
@@ -105,9 +108,9 @@ void init()
 
    	start = 1;
    	cwdCluster = 2; //default to root directory
-   	printf("end init");
-
-   	/*dirEnt *dir = (dirEnt*)malloc(numClusters * bytesPerClus);
+   	
+   	/*printf("end init \n");
+   	dirEnt *dir = (dirEnt*)malloc(numClusters * bytesPerClus);
    	printf("reserved sector count: %d \n", bpb.bpb_rsvdSecCnt);
    	printf("fatsz: %d \n", FATSz);
    	printf("bytes per sec: %d \n", bpb.bpb_bytesPerSec);
@@ -139,7 +142,7 @@ void recurseThroughDir(FILE * fd, int offset)
 	int inc;
    	dirEnt dir;
    	//printf("offset: %d\n", offset);
-   	for(inc = 0; inc < bytesPerClus; inc += 32)
+   	for(inc = 0; inc < bytesPerClus - 64; inc += 32)
    	{
    		//printf("inc: %d\n", inc);
 	   	fseek(fd, offset + inc, SEEK_SET);
@@ -189,9 +192,10 @@ void printDir(dirEnt dir)
 
    	printf("Attributes: %d \n", attr);
    	printf("NTRes: %d \n", dir.dir_NTRes);
-   	printf("First Cluster High: 0x%x \n", dir.dir_fstClusHI);
+   	unsigned int * chain = clusterChain(dir.dir_fstClusLO);
+   	/*printf("First Cluster High: 0x%x \n", dir.dir_fstClusHI);
    	printf("First Cluster Low: 0x%x \n", dir.dir_fstClusLO);
-   	/*printf("First Cluster Table Value: 0x%x \n", tableValue(dir.dir_fstClusLO));
+   	printf("First Cluster Table Value: 0x%x \n", tableValue(dir.dir_fstClusLO));
    	if(dir.dir_fstClusLO < EOC)
    		printf("Next Cluster Table Value: 0x%x \n", tableValue(tableValue(dir.dir_fstClusLO)));*/
 }
@@ -213,14 +217,14 @@ unsigned int tableValue(int cluster)
 	//printf("fatEntOffset: %d \n", fatEntOffset);
 
 	//printf("tableValue: 0x%x: ", *(unsigned int*)&fatTable[fatOffset]);
-	return *(unsigned int*)&fatTable[(fatSector / 16) + fatOffset] & 0x0FFFFFFF;
-	//return *(unsigned int*)&fatTable[fatEntOffset] & 0x0FFFFFFF;
+	//return *(unsigned int*)&fatTable[(fatSector / 16) + fatOffset] & 0x0FFFFFFF;
+	return *(unsigned int*)&fatTable[cluster] & 0x0FFFFFFF;
 }
 
 int clusterChainSize(int cluster, int size)
 {
-	if(size >= 10)
-		return size;
+	//if(size >= 10)
+	//	return size;
 
 	int value = tableValue(cluster);
 	//printf("table value: 0x%x: \n", value);
@@ -258,20 +262,27 @@ unsigned int * clusterChain(int cluster)
 
 void readFatTable(FILE * fd)
 {
-	fatTable = (uint16_t *)malloc(bpb.bpb_numFATs * FATSz * bpb.bpb_bytesPerSec);
+	fatTable = (uint32_t *)malloc(FATSz * bpb.bpb_bytesPerSec);
+	//printf("size of fatTable: %d \n", sizeof(fatTable));
 	//printf("bytes in fat table: %d \n", bpb.bpb_numFATs * FATSz * bpb.bpb_bytesPerSec);
+	
+
+
 	fseek(fd, bpb.bpb_rsvdSecCnt * bpb.bpb_bytesPerSec, SEEK_SET);
 	//fatTable = (uint16_t *)malloc(sizeof(uint16_t*) * 5000);
 	//fread(fatTable, sizeof(uint16_t *), 5000, fd);
-	fread(fatTable, 4, bpb.bpb_numFATs * FATSz * bpb.bpb_bytesPerSec / 4, fd);
+
+	//read(fd, fatTable, FATSz * bpb.bpb_bytesPerSec / 4);
+
+	fread(fatTable, sizeof(uint32_t), FATSz * bpb.bpb_bytesPerSec / sizeof(uint32_t), fd);
 	/*fread(&fatTable, 4, 500, fd);
-	printf("done reading \n");*/
+	printf("done reading \n");
 	int i;
 	printf("length: %d \n", sizeof(fatTable));
 	for(i = 0; i < 1000; i++)
 	{
-		//printf("FAT[%d]: 0x%x \n", i, tableValue(i));
-	}
+		printf("FAT[%d]: 0x%x \n", i, *(unsigned int*)&fatTable[i] & 0x0FFFFFFF);
+	}*/
 }
 
 int OS_cd(const char *path)
@@ -281,9 +292,15 @@ int OS_cd(const char *path)
 
 	if(path[0] == '/')
 	{
-		printf("absolute \n");
+		//printf("absolute \n");
 		cwdCluster = 2;
 		return cdAbsolute(path);
+	}
+
+	if(path == "~")
+	{
+		cwdCluster = 2;
+		return 1;
 	}
 
 	dirEnt * lsDir = OS_readDir(".");
@@ -345,14 +362,14 @@ int OS_cd(const char *path)
 
 	}
 
-	printf("failed\n");
+	//printf("failed\n");
 
 	return -1;
 }
 
 int cdAbsolute(const char * path)
 {
-	printf("path: %s \n", path);
+	//printf("path: %s \n", path);
 
 	int i, status;
 	char * subPath = (char *)malloc(sizeof(char) * 8);
@@ -407,8 +424,9 @@ dirEnt * OS_readDir(const char *dirname)
 
 	if(dirname[0] == '/')
 	{
-		printf("ls absolute path \n");
+		//printf("ls absolute path \n");
 		tempCWD = cwdCluster;
+		//printf("tempCWD: %d \n", tempCWD);
 		OS_cd(dirname);
 	}
 
@@ -438,11 +456,13 @@ dirEnt * OS_readDir(const char *dirname)
 
 	   	ls[count] = dir;
 	   	count++;
-	   	printDir(dir);
+	   	//printDir(dir);
 	}
 
 	if(tempCWD != 0)
 		cwdCluster = tempCWD;
+
+	//printf("after cwd: %d \n", cwdCluster);
 
 	return ls;
 }
