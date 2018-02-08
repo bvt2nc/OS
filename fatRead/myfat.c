@@ -79,6 +79,7 @@ int main() {
     OS_cd("MEDIA");
     OS_open("EPAA22~1JPG");
     /*init();
+    readFatTable(fd);
     recurseThroughDir(fd, firstClusterSector(2) * bpb.bpb_bytesPerSec);*/
 
     return 0;
@@ -114,7 +115,7 @@ void init()
 
    	start = 1;
    	cwdCluster = 2; //default to root directory
-    	readFatTable(fd);
+    readFatTable(fd);
    	
    	/*printf("end init \n");
    	dirEnt *dir = (dirEnt*)malloc(numClusters * bytesPerClus);
@@ -252,8 +253,8 @@ unsigned int * clusterChain(int cluster)
 	//printf("size: %d", size);
 	unsigned int * chain = (unsigned int*)malloc(sizeof(unsigned int) * size);
 	chain[0] = cluster;
-	printf("cluster chain: 0x%x ", cluster);
-	printf("0x%x ", chain[0]);
+	//printf("cluster chain: ");
+	//printf("0x%x ", chain[0]);
 
 	int i;
 	for(i = 1; i < size; i++)
@@ -561,11 +562,10 @@ int OS_read(int fildes, void *buf, int nbyte, int offset)
 		return -1;
 
 	unsigned int * chain = clusterChain(dir.dir_fstClusLO);
-	printf("finished cluster chaining \n");
-	printf("chain[0]: 0x%x \n", (int)chain[0]);
+	int length = clusterChainSize(dir.dir_fstClusLO, 0);
 
-	//if(nbyte > (chain * bytesPerClus) || offset > (chain * bytesPerClus))
-	//	return -1;
+	if(nbyte > (length * bytesPerClus) || offset > (length * bytesPerClus))
+		return -1;
 
 	int bytesRead = 0;
 	int firstCluster = offset / bytesPerClus;
@@ -575,21 +575,29 @@ int OS_read(int fildes, void *buf, int nbyte, int offset)
 	if(nbyte > bytesPerClus - firstClusterOffset)
 		bytesToRead = bytesPerClus - firstClusterOffset;
 
-	printf("firstCluster: %d \n", firstCluster);
+	/*printf("firstCluster: %d \n", firstCluster);
 	printf("firstClusterOffset: %d \n", firstClusterOffset);
 	printf("bytesToRead: %d \n", bytesToRead);
-	printf("firstChainCluster: 0x%x \n", (int)chain[firstCluster]);
+	printf("firstChainCluster: 0x%x \n", (int)chain[firstCluster]);*/
 
 	fseek(fd, (firstClusterSector((int)chain[firstCluster]) * bpb.bpb_bytesPerSec) + firstClusterOffset, SEEK_SET);
 	fread(buf, bytesToRead, 1, fd);
 	bytesRead += bytesToRead;
+	firstCluster++;
+	bytesToRead = nbyte - bytesRead;
 
-
-	while(bytesRead < nbyte)
+	while(bytesRead < nbyte || bytesToRead <= 0)
 	{
-		return -1;
-		fseek(fd, firstClusterSector(dir.dir_fstClusLO) * bpb.bpb_bytesPerSec, SEEK_SET);
-   		fread(buf, nbyte, 1, fd);
+		if(bytesToRead > bytesPerClus)
+		{
+			bytesToRead = bytesPerClus;
+		}
+
+		fseek(fd, firstClusterSector((int)chain[firstCluster]) * bpb.bpb_bytesPerSec, SEEK_SET);
+   		fread(buf + bytesRead, bytesToRead, 1, fd);
+   		bytesRead += bytesToRead;
+   		bytesToRead = nbyte - bytesRead;
+   		firstCluster++;
 	}
 
    	return 1;
