@@ -585,6 +585,7 @@ int OS_read(int fildes, void *buf, int nbyte, int offset)
 	bytesRead += bytesToRead;
 	firstCluster++;
 	bytesToRead = nbyte - bytesRead;
+	printf("bytes left to read: %d \n", bytesToRead);
 
 	while(bytesRead < nbyte || bytesToRead <= 0)
 	{
@@ -597,6 +598,7 @@ int OS_read(int fildes, void *buf, int nbyte, int offset)
    		fread(buf + bytesRead, bytesToRead, 1, fd);
    		bytesRead += bytesToRead;
    		bytesToRead = nbyte - bytesRead;
+   		printf("bytes left to read: %d \n", bytesToRead);
    		firstCluster++;
 	}
 
