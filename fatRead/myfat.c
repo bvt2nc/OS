@@ -73,6 +73,7 @@ int main() {
     OS_cd("~");
     OS_readDir(".");
     OS_readDir("/PEOPLE/ABK2Y");
+    OS_open("CONGRATSTXT");
     /*init();
     readFatTable(fd);
     recurseThroughDir(fd, firstClusterSector(2) * bpb.bpb_bytesPerSec);*/
@@ -505,7 +506,10 @@ int OS_open(const char *path)
 		}
 
 		if(strcmp(realPath, dirName(dir[i], 1)))
-			return i;
+		{
+			printf("fd: %d\n", dir[i].dir_fstClusLO);
+			return dir[i].dir_fstClusLO;
+		}
 	}
 
 	return -1;
