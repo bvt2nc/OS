@@ -63,7 +63,7 @@ unsigned int * clusterChain(int cluster);
 char * dirName(dirEnt dir, int file);
 int cdAbsolute(const char * path);
 dirEnt * openDir;
-int openDirSize;
+//int openDirSize;
 
 int main() {
 
@@ -111,7 +111,7 @@ void init()
    	numDataSec = totSec - (bpb.bpb_rsvdSecCnt + (bpb.bpb_numFATs * FATSz) + rootDirSectors);
    	numClusters = numDataSec / bpb.bpb_secPerClus;
    	openDir = (dirEnt*)malloc(sizeof(dirEnt) * 128);
-   	openDirSize = 1;
+   	//openDirSize = 1;
 
    	start = 1;
    	cwdCluster = 2; //default to root directory
@@ -434,7 +434,7 @@ dirEnt * OS_readDir(const char *dirname)
 	//Assume this acts like ls
 	int tempCWD = 0;
 
-	if(dirname[0] == '/')
+	if(dirname[0] != '.')
 	{
 		//printf("ls absolute path \n");
 		tempCWD = cwdCluster;
@@ -516,12 +516,11 @@ int OS_open(const char *path)
 		if(strcmp(realPath, dirName(dir[i], 1)) == 0)
 		{
 
-			for(j = 0; j < openDirSize; j++)
+			for(j = 0; j < 128; j++)
 			{
 				if(openDir[j].dir_name[0] == 0x00)
 				{
 					openDir[j] = dir[i];
-					openDirSize++;
 					return j;
 				}
 			}
@@ -547,8 +546,16 @@ int OS_close(int fd)
 
 int OS_read(int fildes, void *buf, int nbyte, int offset)
 {
-	printf("in read\n");
-	return -1;
+	
+	dirEnt dir = openDir[fildes];
+	if(dir.dir_name[0] == 0x00)
+		return -1;
+
+   	fseek(fd, firstClusterSector(dir.dir_fstClusLO) * bpb.bpb_bytesPerSec, SEEK_SET);
+   	fread(buf, nbyte, 1, fd);
+   	return 1;
+
+	//return -1;
 }
 
 
