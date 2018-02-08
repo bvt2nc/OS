@@ -450,7 +450,7 @@ dirEnt * OS_readDir(const char *dirname)
 
 	   	ls[count] = dir;
 	   	count++;
-	   	printDir(dir);
+	   	//printDir(dir);
 	}
 
 	//If there is a cluster chain for the directory
@@ -477,7 +477,7 @@ dirEnt * OS_readDir(const char *dirname)
 
 		   	ls[count] = dir;
 		   	count++;
-		   	printDir(dir);
+		   	//printDir(dir);
 		}
 	}
 
