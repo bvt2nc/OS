@@ -68,10 +68,11 @@ int main() {
 	//printf("start");
     OS_cd("PEOPLE");
     OS_readDir(".");
-    printf("==============================\n");
     OS_cd("ABK2Y");
     OS_readDir(".");
-    OS_cd("/MEDIA");
+    OS_cd("/PEOPLE/ABK2Y");
+    OS_readDir(".");
+    OS_readDir("/MEDIA");
 
     return 0;
 }
@@ -138,7 +139,7 @@ void recurseThroughDir(FILE * fd, int offset)
 	int inc;
    	dirEnt dir;
    	//printf("offset: %d\n", offset);
-   	for(inc = 0; inc < bytesPerClus - 64; inc += 32)
+   	for(inc = 0; inc < bytesPerClus; inc += 32)
    	{
    		//printf("inc: %d\n", inc);
 	   	fseek(fd, offset + inc, SEEK_SET);
@@ -281,6 +282,7 @@ int OS_cd(const char *path)
 	if(path[0] == '/')
 	{
 		printf("absolute \n");
+		cwdCluster = 2;
 		return cdAbsolute(path);
 	}
 
@@ -308,6 +310,12 @@ int OS_cd(const char *path)
 			realPath[i] = path[i];
 	}
 
+	/*for(i = 0; i < 8; i++)
+	{
+		printf("%d ", realPath[i]);
+	}
+	printf("\n");*/
+
 	for(i = 0; i < 128; i++)
 	{
 		dir = lsDir[i];
@@ -325,9 +333,13 @@ int OS_cd(const char *path)
 		{
 			printf("match! \n");
 			cwdCluster = dir.dir_fstClusLO;
-			printDir(dir);
+
+			if(cwdCluster == 0)
+				cwdCluster = 2;
+
+			/*printDir(dir);
 			printf("cwdCluster after cd: %d \n", cwdCluster);
-			printf("===================\n");
+			printf("===================\n");*/
 			return 1;
 		}
 
@@ -340,7 +352,40 @@ int OS_cd(const char *path)
 
 int cdAbsolute(const char * path)
 {
-	return -1;
+	printf("path: %s \n", path);
+
+	int i, status;
+	char * subPath = (char *)malloc(sizeof(char) * 8);
+	int index = 0;
+
+	for(i = 1; i < strlen(path); i++)
+	{
+		if(path[i] == '/')
+		{
+			//printf("subPath: %s \n", subPath);
+			status = OS_cd(subPath);
+			index = 0;
+			subPath = (char *)malloc(sizeof(char) * 8);
+
+			if(status == -1)
+			{
+				return -1;
+			}
+		}
+		else
+		{
+			subPath[index] = path[i];
+			index++;
+			//printf("%s \n", subPath);
+		}
+	}
+
+	//printf("subPath: %s \n", subPath);
+	status = OS_cd(subPath);
+	if(status == -1)
+		return -1;
+
+	return 1;
 }
 
 char * dirName(dirEnt dir)
@@ -358,6 +403,15 @@ char * dirName(dirEnt dir)
 dirEnt * OS_readDir(const char *dirname)
 {
 	//Assume this acts like ls
+	int tempCWD = 0;
+
+	if(dirname[0] == '/')
+	{
+		printf("ls absolute path \n");
+		tempCWD = cwdCluster;
+		OS_cd(dirname);
+	}
+
 	dirEnt* ls = (dirEnt*)malloc(sizeof(dirEnt) * 127);
 
 	if(start == 0)
@@ -370,10 +424,6 @@ dirEnt * OS_readDir(const char *dirname)
    	//printf("cwdCluster %d \n", cwdCluster);
 
    	offset = firstClusterSector(cwdCluster) * bpb.bpb_bytesPerSec;
-   	if(cwdCluster != 2)
-   	{
-   		offset += 64;
-   	}
 
    	for(inc = 0; inc < bytesPerClus - 64; inc += 32)
    	{
@@ -388,10 +438,11 @@ dirEnt * OS_readDir(const char *dirname)
 
 	   	ls[count] = dir;
 	   	count++;
-	   	//printDir(dir);
+	   	printDir(dir);
 	}
 
-	printf("============================\n");
+	if(tempCWD != 0)
+		cwdCluster = tempCWD;
 
 	return ls;
 }
