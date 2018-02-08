@@ -297,7 +297,7 @@ int OS_cd(const char *path)
 		return cdAbsolute(path);
 	}
 
-	if(path == "~")
+	if(path[0] == '~')
 	{
 		cwdCluster = 2;
 		return 1;
