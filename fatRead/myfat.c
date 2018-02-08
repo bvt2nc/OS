@@ -564,6 +564,10 @@ int OS_read(int fildes, void *buf, int nbyte, int offset)
 	if(nbyte > bytesPerClus - firstClusterOffset)
 		bytesToRead = bytesPerClus - firstClusterOffset;
 
+	printf("firstCluster: %d \n", firstCluster);
+	printf("firstClusterOffset: %d \n", firstClusterOffset);
+	printf("bytesToRead: %d \n", bytesToRead);
+
 	fseek(fd, (firstClusterSector((int)chain[firstCluster]) * bpb.bpb_bytesPerSec) + firstClusterOffset, SEEK_SET);
 	fread(buf, bytesToRead, 1, fd);
 	bytesRead += bytesToRead;
