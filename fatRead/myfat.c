@@ -74,6 +74,8 @@ int main() {
     OS_readDir(".");
     OS_readDir("/PEOPLE/ABK2Y");
     OS_open("CONGRATSTXT");
+    OS_cd("MEDIA");
+    OS_open("EPAA22~1JPG");
     /*init();
     readFatTable(fd);
     recurseThroughDir(fd, firstClusterSector(2) * bpb.bpb_bytesPerSec);*/
@@ -481,7 +483,7 @@ int OS_open(const char *path)
 	int terminate = 0;
 	char * realPath = (char *)malloc(sizeof(char) * 8);
 
-	for(i = 0; i < 8; i++)
+	for(i = 0; i < 11; i++)
 	{
 		if(terminate == 1)
 		{
@@ -497,6 +499,7 @@ int OS_open(const char *path)
 		else
 			realPath[i] = path[i];
 	}
+	printf("realPath: %s \n", realPath);
 
 	for(i = 0; i < 128; i++)
 	{
@@ -505,7 +508,8 @@ int OS_open(const char *path)
 			break;
 		}
 
-		if(strcmp(realPath, dirName(dir[i], 1)))
+		printf("dirName: %s \n", dirName(dir[i], 1));
+		if(strcmp(realPath, dirName(dir[i], 1)) == 0)
 		{
 			printf("fd: %d\n", dir[i].dir_fstClusLO);
 			return dir[i].dir_fstClusLO;
@@ -517,7 +521,7 @@ int OS_open(const char *path)
 
 int OS_close(int fd)
 {
-	return -1;
+	return 1;
 }
 
 int OS_read(int fildes, void *buf, int nbyte, int offset)
