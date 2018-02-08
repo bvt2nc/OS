@@ -60,7 +60,11 @@ int main() {
 //Allocates memory to global arrays used by core functions
 void init()
 {
-    fd = fopen("sampledisk32.raw", "rb");
+    //fd = fopen("sampledisk32.raw", "rb");
+	//If you don't want to do the below, uncomment above statement
+	//Assumes sampledisk32.raw is in the same directory as code
+    fd = fopen(getenv("FAT_FS_PATH"), "rb"); //get the env var FAT_FS_PATH
+	//Assuming it has been set though...
 
     fseek(fd, 0, SEEK_SET);
 	fread(&bpb, sizeof(bpbFat32), 1, fd);
