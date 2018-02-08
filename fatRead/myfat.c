@@ -65,7 +65,8 @@ char * dirName(dirEnt dir);
 int main() {
 
 	//printf("start");
-    OS_cd("MEDIA");
+    OS_cd("PEOPLE");
+    //OS_readDir(".");
 
     return 0;
 }
@@ -184,8 +185,7 @@ void printDir(dirEnt dir)
    	printf("Attributes: %d \n", attr);
    	printf("NTRes: %d \n", dir.dir_NTRes);
    	printf("First Cluster High: 0x%x \n", dir.dir_fstClusHI);
-   	printf("First Cluster Lowwwww: 0x%x \n", dir.dir_fstClusLO);
-   	printf("end");
+   	printf("First Cluster Low: 0x%x \n", dir.dir_fstClusLO);
    	/*printf("First Cluster Table Value: 0x%x \n", tableValue(dir.dir_fstClusLO));
    	if(dir.dir_fstClusLO < EOC)
    		printf("Next Cluster Table Value: 0x%x \n", tableValue(tableValue(dir.dir_fstClusLO)));*/
@@ -274,15 +274,15 @@ int OS_cd(const char *path)
 	if(start == 0)
 		init();
 
-	printf("pathsssssss: %s \n", path);
+	printf("paths: %s \n", path);
+
+	if(strstr(path, "MEDIA   ") != NULL)
+		printf("==================================== \n");
 	
 	dirEnt * lsDir = OS_readDir(".");
-	printDir(lsDir[0]);
-	printf("before str cat \n");
-
-	dirName(lsDir[0]);
 	dirEnt dir;
 	int i, compare;
+	char * dirNamee;
 
 	for(i = 0; i < 128; i++)
 	{
@@ -293,14 +293,15 @@ int OS_cd(const char *path)
 			break;
 		}
 
-		printf("path: %s\n", path);
-		printf("dirName: %s\n", dirName(dir));
-		compare = strcmp(path, dirName(dir));
-		printf("compare: %d \n", compare);
-		if(strstr(path, dirName(dir)) != NULL)
+		dirNamee = dirName(dir);
+		if(strstr(path, dirNamee) != NULL)
 		{
-			printf("match!");
+			printf("match! \n");
+			printf("path: %s \n", path);
+			printf("dirName: %s \n", dirNamee);
+			printf("strstr: %s \n", strstr(path, dirNamee));
 			cwdCluster = dir.dir_fstClusLO;
+			printDir(dir);
 			printf("cwdCluster after cd: %d \n", cwdCluster);
 			return 1;
 		}
@@ -321,6 +322,7 @@ char * dirName(dirEnt dir)
    		str[i] = dir.dir_name[i];
    	}
 
+   	printf("str: %s \n", str);
    	return str;
 }
 
@@ -336,7 +338,7 @@ dirEnt * OS_readDir(const char *dirname)
 	int count = 0;
    	dirEnt dir;
 
-   	printf("cwdCluster %d \n", cwdCluster);
+   	//printf("cwdCluster %d \n", cwdCluster);
 
    	offset = firstClusterSector(cwdCluster) * bpb.bpb_bytesPerSec;
    	if(cwdCluster != 2)
@@ -357,6 +359,7 @@ dirEnt * OS_readDir(const char *dirname)
 
 	   	ls[count] = dir;
 	   	count++;
+	   	//printDir(dir);
 	}
 
 	return ls;
