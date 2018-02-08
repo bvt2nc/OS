@@ -37,7 +37,7 @@ int main() {
 
 	//Sandbox for testing functions
 
-    /*OS_cd("PEOPLE");
+    OS_cd("PEOPLE");
     OS_readDir(".");
     OS_cd("ABK2Y");
     OS_readDir(".");
@@ -48,7 +48,7 @@ int main() {
     OS_open("CONGRATSTXT");
     OS_cd("MEDIA");
     OS_open("EPAA22~1JPG");
-    init();
+    /*init();
     readFatTable(fd);
     recurseThroughDir(fd, firstClusterSector(2) * bpb.bpb_bytesPerSec);*/
 
@@ -450,7 +450,35 @@ dirEnt * OS_readDir(const char *dirname)
 
 	   	ls[count] = dir;
 	   	count++;
-	   	//printDir(dir);
+	   	printDir(dir);
+	}
+
+	//If there is a cluster chain for the directory
+	dirEnt cwd;
+	offset = firstClusterSector(cwdCluster) * bpb.bpb_bytesPerSec;
+	fseek(fd, offset, SEEK_SET);
+	fread(&cwd, sizeof(dirEnt), 1, fd);
+
+	int length = clusterChainSize(cwd.dir_fstClusLO, 0);
+	if(length > 1)
+	{
+		inc = 0;
+	   	//Loop through each entry (32 bytes long)
+	   	for(inc = 0; inc < bytesPerClus ; inc += 32)
+	   	{
+		   	fseek(fd, offset + inc, SEEK_SET);
+		   	fread(&dir, sizeof(dirEnt), 1, fd);
+		   	if(dir.dir_name[0] == 0x00) //last entry
+		   		break;
+		   	if(dir.dir_name[0] == 0xE5) 
+		   		continue;
+		   	if(dir.dir_attr == 8 || dir.dir_attr == 15) //special case
+		   		continue;
+
+		   	ls[count] = dir;
+		   	count++;
+		   	printDir(dir);
+		}
 	}
 
 	//If absolute path was given, set cwdCluster to original
