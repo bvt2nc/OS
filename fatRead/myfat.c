@@ -61,12 +61,17 @@ void readFatTable(FILE *fd);
 int clusterSize(int cluster, int size);
 unsigned int * clusterChain(int cluster);
 char * dirName(dirEnt dir);
+int cdAbsolute(const char * path);
 
 int main() {
 
 	//printf("start");
     OS_cd("PEOPLE");
-    //OS_readDir(".");
+    OS_readDir(".");
+    printf("==============================\n");
+    OS_cd("ABK2YH");
+    OS_readDir(".");
+    OS_cd("/MEDIA");
 
     return 0;
 }
@@ -273,12 +278,13 @@ int OS_cd(const char *path)
 {	
 	if(start == 0)
 		init();
-
-	printf("paths: %s \n", path);
-
-	if(strstr(path, "MEDIA   ") != NULL)
-		printf("==================================== \n");
 	
+	if(path[0] == '/')
+	{
+		printf("absolute \n");
+		return cdAbsolute(path);
+	}
+
 	dirEnt * lsDir = OS_readDir(".");
 	dirEnt dir;
 	int i, compare;
@@ -294,35 +300,41 @@ int OS_cd(const char *path)
 		}
 
 		dirNamee = dirName(dir);
-		if(strstr(path, dirNamee) != NULL)
+		if(strcmp(path, dirNamee) == 0)
 		{
 			printf("match! \n");
-			printf("path: %s \n", path);
-			printf("dirName: %s \n", dirNamee);
-			printf("strstr: %s \n", strstr(path, dirNamee));
 			cwdCluster = dir.dir_fstClusLO;
 			printDir(dir);
 			printf("cwdCluster after cd: %d \n", cwdCluster);
+			printf("===================\n");
 			return 1;
 		}
 
 	}
 
+	printf("failed\n");
+
+	return -1;
+}
+
+int cdAbsolute(const char * path)
+{
 	return -1;
 }
 
 char * dirName(dirEnt dir)
 {
-	char str[11];
+	char str[8];
 	int i;
    	for(i = 0; i < 8; i++)
    	{
    		if(dir.dir_name[i] == 32)
    			continue;
+
    		str[i] = dir.dir_name[i];
    	}
 
-   	printf("str: %s \n", str);
+   	//printf("%s \n", str);
    	return str;
 }
 
@@ -359,8 +371,10 @@ dirEnt * OS_readDir(const char *dirname)
 
 	   	ls[count] = dir;
 	   	count++;
-	   	//printDir(dir);
+	   	printDir(dir);
 	}
+
+	printf("============================\n");
 
 	return ls;
 }
