@@ -48,8 +48,19 @@ int main() {
     OS_open("CONGRATSTXT");
     OS_cd("MEDIA");
     OS_open("EPAA22~1JPG");
+    /*OS_cd("../PEOPLE");
+    dirEnt * currentDirs = OS_readDir(".");
+    int i;
+    for(i = 0; i < 128; i++)
+    {
+    	if(currentDirs[i].dir_name[0] == 0x00)
+    		break;
+
+    	printDir(currentDirs[i]);
+    }*/
+    OS_open("~/MEDIA/EPAA22~1JPG");
     /*init();
-    readFatTable(fd);
+    //readFatTable(fd);
     recurseThroughDir(fd, firstClusterSector(2) * bpb.bpb_bytesPerSec);*/
 
     return 0;
@@ -150,7 +161,7 @@ void recurseThroughDir(FILE * fd, int offset)
 	   	}
 	   	else
 	   	{
-	   		unsigned int * chain = clusterChain(dir.dir_fstClusLO);
+	   		//unsigned int * chain = clusterChain(dir.dir_fstClusLO);
 	   	}
 	   	//printf("===================================\n");
 	}
@@ -182,11 +193,11 @@ void printDir(dirEnt dir)
    	printf("Attributes: %d \n", attr);
    	printf("NTRes: %d \n", dir.dir_NTRes);
    	unsigned int * chain = clusterChain(dir.dir_fstClusLO);
-   	/*printf("First Cluster High: 0x%x \n", dir.dir_fstClusHI);
+   	printf("First Cluster High: 0x%x \n", dir.dir_fstClusHI);
    	printf("First Cluster Low: 0x%x \n", dir.dir_fstClusLO);
    	printf("First Cluster Table Value: 0x%x \n", tableValue(dir.dir_fstClusLO));
    	if(dir.dir_fstClusLO < EOC)
-   		printf("Next Cluster Table Value: 0x%x \n", tableValue(tableValue(dir.dir_fstClusLO)));*/
+   		printf("Next Cluster Table Value: 0x%x \n", tableValue(tableValue(dir.dir_fstClusLO)));
 }
 
 //returns the value at fatTable[cluster]
@@ -282,6 +293,11 @@ int OS_cd(const char *path)
 		return cdAbsolute(path);
 	}
 
+	//If it is a long relative path leading to other directories
+	if(strstr(path, "/"))
+	{
+		return cdAbsolute(path);
+	}
 
 	if(path[0] == '~')
 	{
@@ -495,6 +511,36 @@ int OS_open(const char *path)
 {
 	if(start == 0)
 		init();
+
+	//If long relative path (leading to ther directories other than current)
+	if(strstr(path, "/"))
+	{
+		int i, status;
+		char * subPath = (char *)malloc(sizeof(char) * 8);
+		int index = 0;
+
+		//Parse through path by finding the 'subpath' (.../*THIS_IS_THE_SUBPATH*/...)
+		for(i = 1; i < strlen(path); i++)
+		{
+			if(path[i] == '/') //reached beginning/end of subpath
+			{
+				//printf("subPath: %s \n", subPath);
+				status = OS_cd(subPath);
+				index = 0;
+				//We are only looking for directories so we don't care about ext
+				subPath = (char *)malloc(sizeof(char) * 8);
+			}
+			else //keep finding more of the subpath
+			{
+				subPath[index] = path[i];
+				index++;
+				//printf("%s \n", subPath);
+			}
+		}
+
+		path = subPath;
+		//printf("%s \n", path);
+	}
 
 	dirEnt * dir = OS_readDir(".");
 	int i, j;

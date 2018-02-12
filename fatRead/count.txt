@@ -1,6 +1,241 @@
-match! 
-match! 
-match! 
-match! 
-match! 
-match! 
+contains / 
+.          
+Attributes: 16 
+NTRes: 0 
+First Cluster High: 0x0 
+First Cluster Low: 0x3 
+First Cluster Table Value: 0x402 
+..         
+Attributes: 16 
+NTRes: 0 
+First Cluster High: 0x0 
+First Cluster Low: 0x0 
+First Cluster Table Value: 0xffffff8 
+404-FAIL.JPG
+Attributes: 32 
+NTRes: 24 
+First Cluster High: 0x0 
+First Cluster Low: 0x4 
+First Cluster Table Value: 0x5 
+BALLOO~1.JPG
+Attributes: 32 
+NTRes: 0 
+First Cluster High: 0x0 
+First Cluster Low: 0x13 
+First Cluster Table Value: 0x14 
+COMCAS~1.JPG
+Attributes: 32 
+NTRes: 0 
+First Cluster High: 0x0 
+First Cluster Low: 0x33 
+First Cluster Table Value: 0x34 
+DENSIT~1.MPG
+Attributes: 32 
+NTRes: 0 
+First Cluster High: 0x0 
+First Cluster Low: 0x53 
+First Cluster Table Value: 0x54 
+ELECTR~1.JPG
+Attributes: 32 
+NTRes: 0 
+First Cluster High: 0x0 
+First Cluster Low: 0x2a3 
+First Cluster Table Value: 0x2a4 
+EPIC-F~1.JPG
+Attributes: 32 
+NTRes: 0 
+First Cluster High: 0x0 
+First Cluster Low: 0x2b3 
+First Cluster Table Value: 0x2b4 
+EPIC-F~2.JPG
+Attributes: 32 
+NTRes: 0 
+First Cluster High: 0x0 
+First Cluster Low: 0x2f3 
+First Cluster Table Value: 0x2f4 
+EPIC-F~3.JPG
+Attributes: 32 
+NTRes: 0 
+First Cluster High: 0x0 
+First Cluster Low: 0x306 
+First Cluster Table Value: 0x307 
+EPIC-F~4.JPG
+Attributes: 32 
+NTRes: 0 
+First Cluster High: 0x0 
+First Cluster Low: 0x316 
+First Cluster Table Value: 0x317 
+EP0C47~1.JPG
+Attributes: 32 
+NTRes: 0 
+First Cluster High: 0x0 
+First Cluster Low: 0x336 
+First Cluster Table Value: 0x337 
+EP582E~1.JPG
+Attributes: 32 
+NTRes: 0 
+First Cluster High: 0x0 
+First Cluster Low: 0x356 
+First Cluster Table Value: 0x357 
+EP8DB7~1.JPG
+Attributes: 32 
+NTRes: 0 
+First Cluster High: 0x0 
+First Cluster Low: 0x376 
+First Cluster Table Value: 0x377 
+EP0EC6~1.JPG
+Attributes: 32 
+NTRes: 0 
+First Cluster High: 0x0 
+First Cluster Low: 0x386 
+First Cluster Table Value: 0x387 
+EP0DF7~1.JPG
+Attributes: 32 
+NTRes: 0 
+First Cluster High: 0x0 
+First Cluster Low: 0x3a6 
+First Cluster Table Value: 0x3a7 
+EP3AAD~1.JPG
+Attributes: 32 
+NTRes: 0 
+First Cluster High: 0x0 
+First Cluster Low: 0x3c6 
+First Cluster Table Value: 0x3c7 
+EP9373~1.JPG
+Attributes: 32 
+NTRes: 0 
+First Cluster High: 0x0 
+First Cluster Low: 0x3d6 
+First Cluster Table Value: 0x3d7 
+EP9962~1.JPG
+Attributes: 32 
+NTRes: 0 
+First Cluster High: 0x0 
+First Cluster Low: 0x3e6 
+First Cluster Table Value: 0x3e7 
+EPAA22~1.JPG
+Attributes: 32 
+NTRes: 0 
+First Cluster High: 0x0 
+First Cluster Low: 0x3f6 
+First Cluster Table Value: 0x3f7 
+.          
+Attributes: 16 
+NTRes: 0 
+First Cluster High: 0x0 
+First Cluster Low: 0x3 
+First Cluster Table Value: 0x402 
+..         
+Attributes: 16 
+NTRes: 0 
+First Cluster High: 0x0 
+First Cluster Low: 0x0 
+First Cluster Table Value: 0xffffff8 
+404-FAIL.JPG
+Attributes: 32 
+NTRes: 24 
+First Cluster High: 0x0 
+First Cluster Low: 0x4 
+First Cluster Table Value: 0x5 
+BALLOO~1.JPG
+Attributes: 32 
+NTRes: 0 
+First Cluster High: 0x0 
+First Cluster Low: 0x13 
+First Cluster Table Value: 0x14 
+COMCAS~1.JPG
+Attributes: 32 
+NTRes: 0 
+First Cluster High: 0x0 
+First Cluster Low: 0x33 
+First Cluster Table Value: 0x34 
+DENSIT~1.MPG
+Attributes: 32 
+NTRes: 0 
+First Cluster High: 0x0 
+First Cluster Low: 0x53 
+First Cluster Table Value: 0x54 
+ELECTR~1.JPG
+Attributes: 32 
+NTRes: 0 
+First Cluster High: 0x0 
+First Cluster Low: 0x2a3 
+First Cluster Table Value: 0x2a4 
+EPIC-F~1.JPG
+Attributes: 32 
+NTRes: 0 
+First Cluster High: 0x0 
+First Cluster Low: 0x2b3 
+First Cluster Table Value: 0x2b4 
+EPIC-F~2.JPG
+Attributes: 32 
+NTRes: 0 
+First Cluster High: 0x0 
+First Cluster Low: 0x2f3 
+First Cluster Table Value: 0x2f4 
+EPIC-F~3.JPG
+Attributes: 32 
+NTRes: 0 
+First Cluster High: 0x0 
+First Cluster Low: 0x306 
+First Cluster Table Value: 0x307 
+EPIC-F~4.JPG
+Attributes: 32 
+NTRes: 0 
+First Cluster High: 0x0 
+First Cluster Low: 0x316 
+First Cluster Table Value: 0x317 
+EP0C47~1.JPG
+Attributes: 32 
+NTRes: 0 
+First Cluster High: 0x0 
+First Cluster Low: 0x336 
+First Cluster Table Value: 0x337 
+EP582E~1.JPG
+Attributes: 32 
+NTRes: 0 
+First Cluster High: 0x0 
+First Cluster Low: 0x356 
+First Cluster Table Value: 0x357 
+EP8DB7~1.JPG
+Attributes: 32 
+NTRes: 0 
+First Cluster High: 0x0 
+First Cluster Low: 0x376 
+First Cluster Table Value: 0x377 
+EP0EC6~1.JPG
+Attributes: 32 
+NTRes: 0 
+First Cluster High: 0x0 
+First Cluster Low: 0x386 
+First Cluster Table Value: 0x387 
+EP0DF7~1.JPG
+Attributes: 32 
+NTRes: 0 
+First Cluster High: 0x0 
+First Cluster Low: 0x3a6 
+First Cluster Table Value: 0x3a7 
+EP3AAD~1.JPG
+Attributes: 32 
+NTRes: 0 
+First Cluster High: 0x0 
+First Cluster Low: 0x3c6 
+First Cluster Table Value: 0x3c7 
+EP9373~1.JPG
+Attributes: 32 
+NTRes: 0 
+First Cluster High: 0x0 
+First Cluster Low: 0x3d6 
+First Cluster Table Value: 0x3d7 
+EP9962~1.JPG
+Attributes: 32 
+NTRes: 0 
+First Cluster High: 0x0 
+First Cluster Low: 0x3e6 
+First Cluster Table Value: 0x3e7 
+EPAA22~1.JPG
+Attributes: 32 
+NTRes: 0 
+First Cluster High: 0x0 
+First Cluster Low: 0x3f6 
+First Cluster Table Value: 0x3f7 
