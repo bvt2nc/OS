@@ -370,7 +370,7 @@ int cdAbsolute(const char * path)
 	int index = 0;
 
 	//Parse through path by finding the 'subpath' (.../*THIS_IS_THE_SUBPATH*/...)
-	for(i = 1; i < strlen(path); i++)
+	for(i = 0; i < strlen(path); i++)
 	{
 		if(path[i] == '/') //reached beginning/end of subpath
 		{
@@ -520,7 +520,7 @@ int OS_open(const char *path)
 		int index = 0;
 
 		//Parse through path by finding the 'subpath' (.../*THIS_IS_THE_SUBPATH*/...)
-		for(i = 1; i < strlen(path); i++)
+		for(i = 0; i < strlen(path); i++)
 		{
 			if(path[i] == '/') //reached beginning/end of subpath
 			{
