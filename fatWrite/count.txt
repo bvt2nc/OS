@@ -1,27 +1,5 @@
-Free cluster at: 0x4fa 
-cwdCluster: 3 
-0 
-32 
-64 
-96 
-128 
-160 
-192 
-224 
-256 
-288 
-320 
-352 
-384 
-416 
-448 
-480 
-512 
-544 
-576 
-608 
-640 
-mkdir status: 1 
+mkdir status: -2 
+rm status: -1 
 .          
 Attributes: 16 
 NTRes: 0 
@@ -188,5 +166,6 @@ TEST
 Attributes: 16 
 NTRes: 0 
 First Cluster High: 0x0 
-First Cluster Low: 0x4fa 
+First Cluster Low: 0x4f5 
 First Cluster Table Value: 0xfffffff 
+open status: 0 

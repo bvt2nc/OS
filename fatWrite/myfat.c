@@ -34,6 +34,7 @@ int cdAbsolute(const char * path);
 dirEnt * openDir;
 int findEmptyCluster();
 dirEnt writeDir(dirEnt dir, char * path, int cluster, int isDir);
+int createFile(const char * path, int isDir);
 
 int main() {
 
@@ -56,7 +57,9 @@ int main() {
     //findEmptyCluster();
 	int status = OS_mkdir("MEDIA/TEST");
 	printf("mkdir status: %d \n", status);
-    dirEnt * currentDirs = OS_readDir("MEDIA");
+	status = OS_rm("MEDIA/TEST  .TXT");
+	printf("rm status: %d \n", status);    
+	dirEnt * currentDirs = OS_readDir("MEDIA");
     int i;
     for(i = 0; i < 128; i++)
     {
@@ -65,7 +68,8 @@ int main() {
 
     	printDir(currentDirs[i]);
     }
-    OS_open("~/MEDIA/EPAA22~1JPG");
+    status = OS_open("~/MEDIA/EPAA22~1.JPG");
+    printf("open status: %d \n", status);
     /*init();
     //readFatTable(fd);
     recurseThroughDir(fd, firstClusterSector(2) * bpb.bpb_bytesPerSec);*/
@@ -411,12 +415,12 @@ int cdAbsolute(const char * path)
 //Will always be 8 bytes long padded with 32s (inherently as that is what is read from the FAT disk)
 char * dirName(dirEnt dir, int file)
 {
-	char * str = (char *)malloc(sizeof(char) * 8);
 	int i;
-
 	int max = 8;
 	if(file == 1)
 		max = 11;
+
+	char * str = (char *)malloc(sizeof(char) * 8);
 
    	for(i = 0; i < max; i++)
    	{
@@ -486,7 +490,7 @@ dirEnt * OS_readDir(const char *dirname)
 	if(length > 1)
 	{
 		inc = 0;
-		int * chain = clusterChain(cwd.dir_fstClusLO);
+		unsigned int * chain = clusterChain(cwd.dir_fstClusLO);
 		offset = firstClusterSector(chain[1]) * bpb.bpb_bytesPerSec;
 	   	//Loop through each entry (32 bytes long)
 	   	for(inc = 0; inc < bytesPerClus ; inc += 32)
@@ -524,6 +528,8 @@ int OS_open(const char *path)
 	if(start == 0)
 		init();
 
+	int tempCWD = cwdCluster;
+
 	//If long relative path (leading to ther directories other than current)
 	if(strstr(path, "/"))
 	{
@@ -557,7 +563,68 @@ int OS_open(const char *path)
 	dirEnt * dir = OS_readDir(".");
 	int i, j;
 	int terminate = 0;
-	char * realPath = (char *)malloc(sizeof(char) * 8);
+
+	char * realPath = (char *)malloc(sizeof(char) * 11);
+	int index = 0;
+	int extFound = 0;
+	char * ext = (char *)malloc(sizeof(char) * 3);
+
+	//See cd
+	//tldr; Reparse the path to get rid of garbage at the end if the short name is smaller than the max allowed
+	for(i = 0; i < 12; i++)
+	{
+		if(index == 11)
+			break;
+
+		if(path[i] == '.')
+		{
+			if(i > 8)
+			{
+				cwdCluster = tempCWD;
+				return -1;
+			}
+			extFound = 1;
+			ext[0] = path[i + 1];
+			ext[1] = path[i + 2];
+			ext[2] = path[i + 3];
+			continue;
+		}
+
+		if(extFound == 1 && i < 9)
+		{
+			realPath[index] = 32;
+			index++;
+			continue;
+		}
+
+		if(extFound == 1)
+		{
+			realPath[index] = ext[0];
+			realPath[index + 1] = ext[1];
+			realPath[index + 2] = ext[2];
+			break;
+		}
+
+		if(terminate == 1)
+		{
+			realPath[index] = 32;
+			index++;
+			continue;
+		}
+		if(path[i] == 0)
+		{
+			realPath[index] = 32;
+			index++;
+			terminate = 1;
+		}
+		else
+		{
+			realPath[index] = path[i];
+			index++;
+		}
+	}
+
+	/*char * realPath = (char *)malloc(sizeof(char) * 8);
 
 	//See cd
 	//tldr; Reparse the path to get rid of garbage at the end if the short name is smaller than the max allowed
@@ -576,7 +643,7 @@ int OS_open(const char *path)
 		}
 		else
 			realPath[i] = path[i];
-	}
+	}*/
 
 	//Loop through all the directories in cwd
 	for(i = 0; i < 128; i++)
@@ -596,6 +663,7 @@ int OS_open(const char *path)
 				if(openDir[j].dir_name[0] == 0x00)
 				{
 					openDir[j] = dir[i];
+					cwdCluster = tempCWD;
 					return j;
 				}
 			}
@@ -608,6 +676,7 @@ int OS_open(const char *path)
 		}
 	}
 
+	cwdCluster = tempCWD;
 	return -1;
 }
 
@@ -707,7 +776,7 @@ int findEmptyCluster()
 	{
 		if(tableValue(i) == 0x0)
 		{
-			printf("Free cluster at: 0x%x \n", i);
+			//printf("Free cluster at: 0x%x \n", i);
 			return i;
 		}
 	}
@@ -724,11 +793,17 @@ int OS_rmdir(const char *path)
 }
 int OS_mkdir(const char *path)
 {
+	return createFile(path, 1);
+}
+
+int createFile(const char *path, int isDir)
+{
 	if(start == 0)
 		init();
 
 	int i;
 	int terminate = 0;
+	int tempCWD = cwdCluster;
 	//If long relative path (leading to ther directories other than current)
 	if(strstr(path, "/"))
 	{
@@ -744,7 +819,10 @@ int OS_mkdir(const char *path)
 				status = OS_cd(subPath);
 
 				if(status == -1 && i != 0)
+				{
+					cwdCluster = tempCWD;
 					return -1;
+				}
 
 				index = 0;
 				subPath = (char *)malloc(sizeof(char) * 11);
@@ -761,30 +839,77 @@ int OS_mkdir(const char *path)
 		//printf("path: %s \n", path);
 	}
 
-	char * realPath = (char *)malloc(sizeof(char) * 8);
+	int len = 11;
+	int parseLen = 12;
+	if(isDir == 1)
+	{	
+		len = 8;
+		parseLen = 8;
+	}
+
+	char * realPath = (char *)malloc(sizeof(char) * len);
+	int index = 0;
+	int extFound = 0;
+	char * ext = (char *)malloc(sizeof(char) * 3);
+
 	//See cd
 	//tldr; Reparse the path to get rid of garbage at the end if the short name is smaller than the max allowed
-	for(i = 0; i < 8; i++)
+	for(i = 0; i < parseLen; i++)
 	{
-		if(terminate == 1)
+		if(index == len)
+			break;
+
+		if(path[i] == '.')
 		{
-			realPath[i] = 32;
+			if(i > 8)
+			{
+				cwdCluster = tempCWD;
+				return -1;
+			}
+			extFound = 1;
+			ext[0] = path[i + 1];
+			ext[1] = path[i + 2];
+			ext[2] = path[i + 3];
 			continue;
 		}
 
+		if(extFound == 1 && i < 9)
+		{
+			realPath[index] = 32;
+			index++;
+			continue;
+		}
+
+		if(extFound == 1)
+		{
+			realPath[index] = ext[0];
+			realPath[index + 1] = ext[1];
+			realPath[index + 2] = ext[2];
+			break;
+		}
+
+		if(terminate == 1)
+		{
+			realPath[index] = 32;
+			index++;
+			continue;
+		}
 		if(path[i] == 0)
 		{
-			realPath[i] = 32;
+			realPath[index] = 32;
+			index++;
 			terminate = 1;
 		}
 		else
-			realPath[i] = path[i];
+		{
+			realPath[index] = path[i];
+			index++;
+		}
 	}
 
 	int inc, offset, cmp;
    	dirEnt dir;
    	int emptyCluster = findEmptyCluster();
-   	printf("cwdCluster: %d \n", cwdCluster);
    	offset = firstClusterSector(cwdCluster) * bpb.bpb_bytesPerSec;
 
    	//Loop through each entry (32 bytes long)
@@ -794,21 +919,19 @@ int OS_mkdir(const char *path)
 	   	fread(&dir, sizeof(dirEnt), 1, fd);
 	   	//if(dir.dir_name[0] == 0x00) //last entry
 		   	//printf("end of entries reached \n");
-	   	cmp = strcmp(realPath, dirName(dir, 0));
+	   	cmp = strcmp(realPath, dirName(dir, !isDir));
 	   	if(cmp == 0) //Directory already exists
 	   	{
+	   		cwdCluster = tempCWD;
 	   		return -2;
 	   	}
 
 	   	if(dir.dir_name[0] == 0xE5 || dir.dir_name[0] == 0x00) 
 	   	{
-	   		dir = writeDir(dir, realPath, emptyCluster, 1);
-	   		//printDir(dir);
-	   		//printf("====================================\n");
+	   		dir = writeDir(dir, realPath, emptyCluster, isDir);
 	   		fseek(fd, offset + inc, SEEK_SET);
 	   		fwrite(&dir, sizeof(dirEnt), 1, fd);
-	   		//printDir(dir);
-	   		//printf("==================AFTER==================\n");
+	   		cwdCluster = tempCWD;
 	   		return 1;
 	   	}
 	}
@@ -822,7 +945,7 @@ int OS_mkdir(const char *path)
 	int length = clusterChainSize(cwd.dir_fstClusLO, 0);
 	if(length > 1)
 	{
-		int * chain = clusterChain(cwd.dir_fstClusLO);
+		unsigned int * chain = clusterChain(cwd.dir_fstClusLO);
 		offset = firstClusterSector(chain[1]) * bpb.bpb_bytesPerSec;
 		inc = 0;
 	   	//Loop through each entry (32 bytes long)
@@ -830,35 +953,44 @@ int OS_mkdir(const char *path)
 	   	{
 		   	fseek(fd, offset + inc, SEEK_SET);
 		   	fread(&dir, sizeof(dirEnt), 1, fd);
-		   	printf("%d \n", inc);
 		   	//if(dir.dir_name[0] == 0x00) //last entry
 			   	//printf("end of entries reached \n");
-		   	cmp = strcmp(realPath, dirName(dir, 0));
+		   	cmp = strcmp(realPath, dirName(dir, !isDir));
 		   	if(cmp == 0) //Directory already exists
 		   	{
+		   		cwdCluster = tempCWD;
 		   		return -2;
 		   	}
 
 		   	if(dir.dir_name[0] == 0xE5 || dir.dir_name[0] == 0x00) 
 		   	{
-		   		dir = writeDir(dir, realPath, emptyCluster, 1);
+		   		dir = writeDir(dir, realPath, emptyCluster, isDir);
 		   		fseek(fd, offset + inc, SEEK_SET);
 		   		fwrite(&dir, sizeof(dirEnt), 1, fd);
+		   		cwdCluster = tempCWD;
 		   		return 1;
 		   	}
 		}
 	}
 
+	cwdCluster = tempCWD;
 	return -1;
 }
 
 dirEnt writeDir(dirEnt dir, char* path, int cluster, int isDir)
 {
-	int nameLen = 11;
-	if(isDir)
+	int nameLen = 8;
+	dir.dir_attr = 0x10;
+	char * ext = (char *)malloc(sizeof(char) * 3);
+	int nullTermPos;
+	if(isDir == 0) //writing a file
 	{
-		nameLen = 8;
-		dir.dir_attr = 0x10;
+		nameLen = 11;
+		dir.dir_attr = 0x00;
+		nullTermPos = 12; //short name has length 8 + ext of length 3
+
+		//separate path to filename and ext
+
 	}
 
 	int i;
@@ -881,7 +1013,6 @@ dirEnt writeDir(dirEnt dir, char* path, int cluster, int isDir)
 	fseek(fd, bpb.bpb_rsvdSecCnt * bpb.bpb_bytesPerSec, SEEK_SET);
 	fwrite(fatTable, sizeof(uint32_t), FATSz * bpb.bpb_bytesPerSec / sizeof(uint32_t), fd);
 
-
 	return dir;
 }
 
@@ -890,14 +1021,198 @@ int OS_rm(const char *path)
 	if(start == 0)
 		init();
 
+	int i;
+	int terminate = 0;
+	int tempCWD = cwdCluster;
+	//If long relative path (leading to ther directories other than current)
+	if(strstr(path, "/"))
+	{
+		int i, status;
+		char * subPath = (char *)malloc(sizeof(char) * 11);
+		int index = 0;
+
+		//Parse through path by finding the 'subpath' (.../*THIS_IS_THE_SUBPATH*/...)
+		for(i = 0; i < strlen(path); i++)
+		{
+			if(path[i] == '/') //reached beginning/end of subpath
+			{
+				status = OS_cd(subPath);
+
+				if(status == -1 && i != 0)
+				{
+					cwdCluster = tempCWD;
+					return -1;
+				}
+
+				index = 0;
+				subPath = (char *)malloc(sizeof(char) * 11);
+			}
+			else //keep finding more of the subpath
+			{
+				subPath[index] = path[i];
+				index++;
+				//printf("%s \n", subPath);
+			}
+		}
+
+		path = subPath;
+		//printf("path: %s \n", path);
+	}
+
+	char * realPath = (char *)malloc(sizeof(char) * 11);
+	int index = 0;
+	int extFound = 0;
+	char * ext = (char *)malloc(sizeof(char) * 3);
+
+	//See cd
+	//tldr; Reparse the path to get rid of garbage at the end if the short name is smaller than the max allowed
+	for(i = 0; i < 12; i++)
+	{
+		if(index == 11)
+			break;
+
+		if(path[i] == '.')
+		{
+			if(i > 8)
+			{
+				cwdCluster = tempCWD;
+				return -1;
+			}
+			extFound = 1;
+			ext[0] = path[i + 1];
+			ext[1] = path[i + 2];
+			ext[2] = path[i + 3];
+			continue;
+		}
+
+		if(extFound == 1 && i < 9)
+		{
+			realPath[index] = 32;
+			index++;
+			continue;
+		}
+
+		if(extFound == 1)
+		{
+			realPath[index] = ext[0];
+			realPath[index + 1] = ext[1];
+			realPath[index + 2] = ext[2];
+			break;
+		}
+
+		if(terminate == 1)
+		{
+			realPath[index] = 32;
+			index++;
+			continue;
+		}
+		if(path[i] == 0)
+		{
+			realPath[index] = 32;
+			index++;
+			terminate = 1;
+		}
+		else
+		{
+			realPath[index] = path[i];
+			index++;
+		}
+	}
+
+	int inc, offset, cmp;
+   	dirEnt dir;
+   	int emptyCluster = findEmptyCluster();
+   	unsigned int * fileChain;
+   	int fileChainSize;
+   	dirEnt *emptyDir; //empty dirEnt
+   	offset = firstClusterSector(cwdCluster) * bpb.bpb_bytesPerSec;
+
+   	//Loop through each entry (32 bytes long)
+   	for(inc = 0; inc < bytesPerClus ; inc += 32)
+   	{
+	   	fseek(fd, offset + inc, SEEK_SET);
+	   	fread(&dir, sizeof(dirEnt), 1, fd);
+	   	cmp = strcmp(realPath, dirName(dir, 1));
+	   	if(cmp == 0) //File Found!
+	   	{
+	   		cwdCluster = tempCWD;
+
+	   		if(dir.dir_attr == 0x10) // is a directory
+	   			return -2;
+
+			fatTable[dir.dir_fstClusLO] = 0xFFFFFFF;
+	   		fileChainSize = clusterChainSize(dir.dir_fstClusLO, 0);
+	   		if(fileChainSize > 1)
+	   		{
+	   			fileChain = clusterChain(dir.dir_fstClusLO);
+	   			for(i = 0; i < fileChainSize; i++)
+	   			{
+	   				fatTable[fileChain[i]] = 0xFFFFFFF;
+	   			}
+	   		}
+	   		fseek(fd, bpb.bpb_rsvdSecCnt * bpb.bpb_bytesPerSec, SEEK_SET);
+			fwrite(fatTable, sizeof(uint32_t), FATSz * bpb.bpb_bytesPerSec / sizeof(uint32_t), fd);
+
+			emptyDir = (dirEnt*)malloc(sizeof(dirEnt)); //empty dirEnt
+			fseek(fd, offset + inc, SEEK_SET);
+	   		fwrite(emptyDir, sizeof(dirEnt), 1, fd);
+	   		return 1;
+	   	}
+	}
+
+	//If there is a cluster chain for the directory
+	dirEnt cwd;
+	offset = firstClusterSector(cwdCluster) * bpb.bpb_bytesPerSec;
+	fseek(fd, offset, SEEK_SET);
+	fread(&cwd, sizeof(dirEnt), 1, fd);
+
+	int length = clusterChainSize(cwd.dir_fstClusLO, 0);
+	if(length > 1)
+	{
+		unsigned int * chain = clusterChain(cwd.dir_fstClusLO);
+		offset = firstClusterSector(chain[1]) * bpb.bpb_bytesPerSec;
+		inc = 0;
+	   	//Loop through each entry (32 bytes long)
+	   	for(inc = 0; inc < bytesPerClus; inc += 32)
+	   	{
+		   	fseek(fd, offset + inc, SEEK_SET);
+		   	fread(&dir, sizeof(dirEnt), 1, fd);
+		   	cmp = strcmp(realPath, dirName(dir, 1));
+		   	if(cmp == 0) //Directory already exists
+		   	{
+		   		cwdCluster = tempCWD;
+
+		   		if(dir.dir_attr == 0x10) // is a directory
+		   			return -2;
+
+				fatTable[dir.dir_fstClusLO] = 0xFFFFFFF;
+		   		fileChainSize = clusterChainSize(dir.dir_fstClusLO, 0);
+		   		if(fileChainSize > 1)
+		   		{
+		   			fileChain = clusterChain(dir.dir_fstClusLO);
+		   			for(i = 0; i < fileChainSize; i++)
+		   			{
+		   				fatTable[fileChain[i]] = 0xFFFFFFF;
+		   			}
+		   		}
+		   		fseek(fd, bpb.bpb_rsvdSecCnt * bpb.bpb_bytesPerSec, SEEK_SET);
+				fwrite(fatTable, sizeof(uint32_t), FATSz * bpb.bpb_bytesPerSec / sizeof(uint32_t), fd);
+
+				emptyDir = (dirEnt*)malloc(sizeof(dirEnt)); //empty dirEnt
+				fseek(fd, offset + inc, SEEK_SET);
+		   		fwrite(emptyDir, sizeof(dirEnt), 1, fd);
+		   		return 1;
+		   	}
+		}
+	}
+
+	cwdCluster = tempCWD;
 	return -1;
 }
+
 int OS_creat(const char *path)
 {
-	if(start == 0)
-		init();
-
-	return -1;
+	return createFile(path, 0);
 }
 int OS_write(int fildes, const void *buf, int nbyte, int offset)
 {
