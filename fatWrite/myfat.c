@@ -38,6 +38,7 @@ int findEmptyCluster();
 dirEnt writeDir(dirEnt dir, char * path, int cluster, int isDir);
 int createFile(const char * path, int isDir);
 char * goToEndOfFilePath(const char * path);
+int removeFile(const char * path, int isDir);
 
 int main() {
 
@@ -649,27 +650,6 @@ int OS_open(const char *path)
 		}
 	}
 
-	/*char * realPath = (char *)malloc(sizeof(char) * 8);
-
-	//See cd
-	//tldr; Reparse the path to get rid of garbage at the end if the short name is smaller than the max allowed
-	for(i = 0; i < 11; i++)
-	{
-		if(terminate == 1)
-		{
-			realPath[i] = 32;
-			continue;
-		}
-
-		if(path[i] == 0)
-		{
-			realPath[i] = 32;
-			terminate = 1;
-		}
-		else
-			realPath[i] = path[i];
-	}*/
-
 	//Loop through all the directories in cwd
 	for(i = 0; i < 128; i++)
 	{
@@ -847,10 +827,7 @@ char * goToEndOfFilePath(const char *path)
 
 int OS_rmdir(const char *path)
 {
-	if(start == 0)
-		init();
-
-	return -1;
+	return removeFile(path, 1);
 }
 int OS_mkdir(const char *path)
 {
@@ -1035,7 +1012,7 @@ dirEnt writeDir(dirEnt dir, char* path, int cluster, int isDir)
 	return dir;
 }
 
-int OS_rm(const char *path)
+int removeFile(const char * path, int isDir)
 {
 	if(start == 0)
 		init();
@@ -1114,7 +1091,7 @@ int OS_rm(const char *path)
 		}
 	}
 
-	int inc, offset, cmp;
+	int inc, offset, clusterOffset, cmp;
    	dirEnt dir, cwd;
    	int emptyCluster = findEmptyCluster();
    	unsigned int * fileChain;
@@ -1143,20 +1120,40 @@ int OS_rm(const char *path)
 		   		cwdCluster = tempCWD;
 
 		   		if(dir.dir_attr == 0x10) // is a directory
+		   		{
+		   			if(isDir == 0) //we specified we were removing a file
+		   				return -2;
+		   		}
+		   		if(isDir && dir.dir_attr != 0x10) //specified we were removing a dir and it is not a dir
 		   			return -2;
 
-				fatTable[dir.dir_fstClusLO] = 0xFFFFFFF;
+				fatTable[dir.dir_fstClusLO] = 0x0;
 		   		fileChainSize = clusterChainSize(dir.dir_fstClusLO, 0);
 		   		if(fileChainSize > 1)
 		   		{
 		   			fileChain = clusterChain(dir.dir_fstClusLO);
 		   			for(i = 0; i < fileChainSize; i++)
 		   			{
-		   				fatTable[fileChain[i]] = 0xFFFFFFF;
+		   				fatTable[fileChain[i]] = 0x0;
+		   				clusterOffset = firstClusterSector(chain[i]) * bpb.bpb_bytesPerSec;
+		   				fseek(fd, clusterOffset, SEEK_SET);
+		   				emptyDir = (dirEnt*)malloc(sizeof(dirEnt)); //empty dirEnt
+		   				fwrite(emptyDir, sizeof(dirEnt), 1, fd);
 		   			}
 		   		}
 		   		fseek(fd, bpb.bpb_rsvdSecCnt * bpb.bpb_bytesPerSec, SEEK_SET);
 				fwrite(fatTable, sizeof(uint32_t), FATSz * bpb.bpb_bytesPerSec / sizeof(uint32_t), fd);
+
+				if(isDir) //if we are removing a directory, we must remove the dot and dotdot files
+				{
+					clusterOffset = firstClusterSector(dir.dir_fstClusLO) * bpb.bpb_bytesPerSec;
+					emptyDir = (dirEnt*)malloc(sizeof(dirEnt)); //empty dirEnt
+					fseek(fd, clusterOffset, SEEK_SET);
+					fwrite(emptyDir, sizeof(dirEnt), 1, fd); //delete dot entry
+					emptyDir = (dirEnt*)malloc(sizeof(dirEnt)); //empty dirEnt
+					fseek(fd, clusterOffset + 32, SEEK_SET);
+					fwrite(emptyDir, sizeof(dirEnt), 1, fd); //delete dot dot entry
+				}
 
 				emptyDir = (dirEnt*)malloc(sizeof(dirEnt)); //empty dirEnt
 				fseek(fd, offset + inc, SEEK_SET);
@@ -1168,6 +1165,11 @@ int OS_rm(const char *path)
 
 	cwdCluster = tempCWD;
 	return -1;
+}
+
+int OS_rm(const char *path)
+{
+	return removeFile(path, 0);
 }
 
 int OS_creat(const char *path)
