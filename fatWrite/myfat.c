@@ -1215,11 +1215,11 @@ int OS_write(int fildes, const void *buf, int nbyte, int offset)
 	int firstClusterOffset = offset % bytesPerClus;
 	int bytesToWrite = nbyte; //var used to hold specifically how many bytes to read
 
-	printf("firstCluster: %d \n", firstCluster);
+	/*printf("firstCluster: %d \n", firstCluster);
 	printf("chain[firstCluster]: %d \n", chain[firstCluster]);
 	printf("firstClusterOffset: %d \n", firstClusterOffset);
 	printf("bytesToWrite: %d \n", bytesToWrite);
-	printf("firstChainCluster: 0x%x \n", (int)chain[firstCluster]);
+	printf("firstChainCluster: 0x%x \n", (int)chain[firstCluster]);*/
 
 	char * s = (char*) buf;
 	printf("%s \n", s);
@@ -1253,6 +1253,7 @@ int OS_write(int fildes, const void *buf, int nbyte, int offset)
 	{
 		//update the size of the file
 		dir.dir_fileSize = offset + nbyte;
+		printf(dir.dir_fileSize);
 		fseek(fd, firstClusterSector(dir.dir_fstClusLO) * bpb.bpb_bytesPerSec, SEEK_SET);
 		fwrite(&dir, sizeof(dirEnt), 1, fd);
 	}
