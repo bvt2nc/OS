@@ -1187,7 +1187,7 @@ int OS_write(int fildes, const void *buf, int nbyte, int offset)
 	//Get the cluster chain and its length
 	unsigned int * chain = clusterChain(dir.dir_fstClusLO);
 	int length = clusterChainSize(dir.dir_fstClusLO, 0);
-	int clusterLengthOfBuffer = ((nbyte + offset + 1) / bytesPerClus);
+	int clusterLengthOfBuffer = ((nbyte + offset) / bytesPerClus) + 1;
 	int emptyCluster;
 	int i;
 
@@ -1209,6 +1209,16 @@ int OS_write(int fildes, const void *buf, int nbyte, int offset)
 		fseek(fd, firstClusterSector(dir.dir_fstClusLO) * bpb.bpb_bytesPerSec, SEEK_SET);
 		fwrite(&dir, sizeof(dirEnt), 1, fd);
 	}
+
+	if(offset + nbyte > dir.dir_fileSize)
+	{
+		//update the size of the file
+		dir.dir_fileSize = offset + nbyte;
+		printf("%d \n", dir.dir_fileSize);
+		fseek(fd, firstClusterSector(dir.dir_fstClusLO) * bpb.bpb_bytesPerSec, SEEK_SET);
+		fwrite(&dir, sizeof(dirEnt), 1, fd);
+	}
+
 
 	int bytesWritten = 0;
 	int firstCluster = offset / bytesPerClus;
@@ -1247,15 +1257,6 @@ int OS_write(int fildes, const void *buf, int nbyte, int offset)
    		bytesWritten += bytesToWrite;
    		bytesToWrite = nbyte - bytesWritten;
    		firstCluster++;
-	}
-
-	if(offset + nbyte > dir.dir_fileSize)
-	{
-		//update the size of the file
-		dir.dir_fileSize = offset + nbyte;
-		printf(dir.dir_fileSize);
-		fseek(fd, firstClusterSector(dir.dir_fstClusLO) * bpb.bpb_bytesPerSec, SEEK_SET);
-		fwrite(&dir, sizeof(dirEnt), 1, fd);
 	}
 
    	return nbyte;
