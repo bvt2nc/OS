@@ -58,12 +58,22 @@ int main() {
     OS_open("EPAA22~1JPG");
     OS_cd("../PEOPLE");*/
     //findEmptyCluster();
-	int status = OS_mkdir("MEDIA/TEST2");
+    OS_cd("MEDIA");
+	int status = OS_mkdir("TEST1");
 	printf("mkdir status: %d \n", status);
-	status = OS_rm("MEDIA/TEST2.TXT");
+	status = OS_creat("MEDIA/TEST.XT");
 	printf("rm status: %d \n", status);    
-	dirEnt * currentDirs = OS_readDir("MEDIA");
+	dirEnt * currentDirs = OS_readDir(".");
     int i;
+    for(i = 0; i < 128; i++)
+    {
+    	if(currentDirs[i].dir_name[0] == 0x00)
+    		break;
+
+    	printDir(currentDirs[i]);
+    }
+    printf("==========================================\n");
+    currentDirs = OS_readDir("TEST1");
     for(i = 0; i < 128; i++)
     {
     	if(currentDirs[i].dir_name[0] == 0x00)
@@ -117,16 +127,14 @@ void init()
    	int i;
    	dotName = (char *)malloc(sizeof(char) * 11);
    	dotName[0] = '.';
-   	dotName[1] = 0;
-   	for(i = 2; i < 11; i++)
-   		dotName[i] = 32;
+   	for(i = 1; i < 11; i++)
+   		dotName[i] = ' ';
 
    	dotDotName = (char *)malloc(sizeof(char) * 11);
    	dotDotName[0] = '.';
    	dotDotName[1] = '.';
-   	dotDotName[2] = 0;
-   	for(i = 3; i < 11; i++)
-   		dotName[i] = 32;
+   	for(i = 2; i < 11; i++)
+   		dotDotName[i] = ' ';
 
    	//if init has been read, start = 1
    	//otherwise start = 0
@@ -807,6 +815,9 @@ char * goToEndOfFilePath(const char *path)
 	char * subPath = (char *)malloc(sizeof(char) * 11);
 	int index = 0;
 
+	if(path[0] == '/')
+		cwdCluster = 2;
+
 	//Parse through path by finding the 'subpath' (.../*THIS_IS_THE_SUBPATH*/...)
 	for(i = 0; i < strlen(path); i++)
 	{
@@ -934,17 +945,20 @@ int createFile(const char *path, int isDir)
 	}
 
 	int inc, offset, cmp, iDirName;
-   	dirEnt dir, cwd, parent;
+   	dirEnt dir, cwd;
    	int emptyCluster = findEmptyCluster();
    	offset = firstClusterSector(cwdCluster) * bpb.bpb_bytesPerSec;
 	fseek(fd, offset, SEEK_SET);
 	fread(&cwd, sizeof(dirEnt), 1, fd);
 	int length = clusterChainSize(cwd.dir_fstClusLO, 0);
 	unsigned int * chain = clusterChain(cwd.dir_fstClusLO);
+	if(chain[0] == 0)
+		chain[0] = 2;
 
 	for(i = 0; i < length; i++)
 	{
 		offset = firstClusterSector(chain[i]) * bpb.bpb_bytesPerSec;
+		printf("chain: %d \n", chain[i]);
 		//Loop through each entry (32 bytes long)
 	   	for(inc = 0; inc < bytesPerClus ; inc += 32)
 	   	{
@@ -965,21 +979,21 @@ int createFile(const char *path, int isDir)
 
 		   		if(isDir)
 		   		{
+		   			offset = firstClusterSector(dir.dir_fstClusLO) * bpb.bpb_bytesPerSec;
 		   			for(iDirName = 0; iDirName < 11; iDirName++)
 		   				dir.dir_name[iDirName] = dotName[iDirName];
-		   			fseek(fd, offset + inc + 32, SEEK_SET);
+		   			fseek(fd, offset, SEEK_SET);
 		   			fwrite(&dir, sizeof(dirEnt), 1, fd);
 		   			for(iDirName = 0; iDirName < 11; iDirName++)
 		   				dir.dir_name[iDirName] = dotDotName[iDirName];
-		   			dir.dir_fstClusLO = parent.dir_fstClusLO;
-		   			fseek(fd, offset + inc + 32, SEEK_SET);
+		   			dir.dir_fstClusLO = cwdCluster;
+		   			fseek(fd, offset + 32, SEEK_SET);
 		   			fwrite(&dir, sizeof(dirEnt), 1, fd);
 		   		}
 
 		   		cwdCluster = tempCWD;
 		   		return 1;
 		   	}
-		   	parent = dir;
 		}
 	}
 
@@ -1111,6 +1125,8 @@ int OS_rm(const char *path)
 	fread(&cwd, sizeof(dirEnt), 1, fd);
 	int length = clusterChainSize(cwd.dir_fstClusLO, 0);
 	unsigned int * chain = clusterChain(cwd.dir_fstClusLO);
+	if(chain[0] == 0)
+		chain[0] = 2;
 
 	for(i = 0; i < length; i++)
 	{
