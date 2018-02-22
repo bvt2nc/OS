@@ -1215,10 +1215,14 @@ int OS_write(int fildes, const void *buf, int nbyte, int offset)
 	int firstClusterOffset = offset % bytesPerClus;
 	int bytesToWrite = nbyte; //var used to hold specifically how many bytes to read
 
-	/*printf("firstCluster: %d \n", firstCluster);
+	printf("firstCluster: %d \n", firstCluster);
+	printf("chain[firstCluster]: %d \n", chain[firstCluster]);
 	printf("firstClusterOffset: %d \n", firstClusterOffset);
-	printf("bytesToRead: %d \n", bytesToRead);
-	printf("firstChainCluster: 0x%x \n", (int)chain[firstCluster]);*/
+	printf("bytesToWrite: %d \n", bytesToWrite);
+	printf("firstChainCluster: 0x%x \n", (int)chain[firstCluster]);
+
+	char * s = (char*) buf;
+	printf("%s \n", s);
 
 	//Write the data at the offset of the first cluster (after adding in the offset) relative to the file
 	fseek(fd, (firstClusterSector((int)chain[firstCluster]) * bpb.bpb_bytesPerSec) + firstClusterOffset, SEEK_SET);
