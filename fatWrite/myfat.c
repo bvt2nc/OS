@@ -34,6 +34,9 @@ unsigned int * clusterChain(int cluster);
 char * dirName(dirEnt dir, int file);
 int cdAbsolute(const char * path);
 dirEnt * openDir;
+int * openDirOffset;
+int * tempOpenDirOffset;
+int opening;
 int findEmptyCluster();
 dirEnt writeDir(dirEnt dir, char * path, int cluster, int isDir);
 int createFile(const char * path, int isDir);
@@ -124,6 +127,9 @@ void init()
    	numDataSec = totSec - (bpb.bpb_rsvdSecCnt + (bpb.bpb_numFATs * FATSz) + rootDirSectors);
    	numClusters = numDataSec / bpb.bpb_secPerClus;
    	openDir = (dirEnt*)malloc(sizeof(dirEnt) * 128);
+   	openDirOffset = (int*)malloc(sizeof(int) * 128);
+   	tempOpenDirOffset = (int*)malloc(sizeof(int) * 128);
+   	opening = 0;
 
    	int i;
    	dotName = (char *)malloc(sizeof(char) * 11);
@@ -502,6 +508,8 @@ dirEnt * OS_readDir(const char *dirname)
 	   		continue;
 
 	   	ls[count] = dir;
+	   	if(opening == 1)
+		   	tempOpenDirOffset[count] = offset + inc; 
 	   	count++;
 	   	//printDir(dir);
 	}
@@ -534,6 +542,8 @@ dirEnt * OS_readDir(const char *dirname)
 		   	//printDir(dir);
 		   	//printf("========================\n");
 		   	ls[count] = dir;
+		   	if(opening == 1)
+		   		tempOpenDirOffset[count] = offset + inc; 
 		   	count++;
 		   	//printDir(dir);
 		}
@@ -555,6 +565,8 @@ int OS_open(const char *path)
 		init();
 
 	int tempCWD = cwdCluster;
+	opening = 1;
+	tempOpenDirOffset = (int*)malloc(sizeof(int) * 128);
 
 	//If long relative path (leading to ther directories other than current)
 	if(strstr(path, "/"))
@@ -589,6 +601,7 @@ int OS_open(const char *path)
 	dirEnt * dir = OS_readDir(".");
 	int i, j;
 	int terminate = 0;
+	opening = 0;
 
 	char * realPath = (char *)malloc(sizeof(char) * 11);
 	int index = 0;
@@ -668,6 +681,7 @@ int OS_open(const char *path)
 				if(openDir[j].dir_name[0] == 0x00)
 				{
 					openDir[j] = dir[i];
+					openDirOffset[j] = tempOpenDirOffset[i];
 					cwdCluster = tempCWD;
 					return j;
 				}
@@ -696,6 +710,7 @@ int OS_close(int fd)
 		return -1;
 	dirEnt *emptyDir = (dirEnt*)malloc(sizeof(dirEnt)); //empty dirEnt
 	openDir[fd] = *emptyDir;
+	openDirOffset[fd] = 0;
 
 	return 1;
 }
@@ -720,7 +735,7 @@ int OS_read(int fildes, void *buf, int nbyte, int offset)
 
 	//If the offset or nbytes to be read is larger than the size (in bytes)
 	//the cluster link occupies, send signal to throw error
-	if(nbyte > (length * bytesPerClus) || offset > (length * bytesPerClus))
+	if(nbyte + offset > dir.dir_fileSize)
 		return -1;
 
 	int bytesRead = 0;
@@ -1206,7 +1221,7 @@ int OS_write(int fildes, const void *buf, int nbyte, int offset)
 
 		//update the size of the file
 		dir.dir_fileSize = offset + nbyte;
-		fseek(fd, firstClusterSector(dir.dir_fstClusLO) * bpb.bpb_bytesPerSec, SEEK_SET);
+		fseek(fd, openDirOffset[fildes], SEEK_SET);
 		fwrite(&dir, sizeof(dirEnt), 1, fd);
 	}
 
@@ -1214,8 +1229,7 @@ int OS_write(int fildes, const void *buf, int nbyte, int offset)
 	{
 		//update the size of the file
 		dir.dir_fileSize = offset + nbyte;
-		printf("%d \n", dir.dir_fileSize);
-		fseek(fd, firstClusterSector(dir.dir_fstClusLO) * bpb.bpb_bytesPerSec, SEEK_SET);
+		fseek(fd, openDirOffset[fildes], SEEK_SET);
 		fwrite(&dir, sizeof(dirEnt), 1, fd);
 	}
 
@@ -1230,9 +1244,6 @@ int OS_write(int fildes, const void *buf, int nbyte, int offset)
 	printf("firstClusterOffset: %d \n", firstClusterOffset);
 	printf("bytesToWrite: %d \n", bytesToWrite);
 	printf("firstChainCluster: 0x%x \n", (int)chain[firstCluster]);*/
-
-	char * s = (char*) buf;
-	printf("%s \n", s);
 
 	//Write the data at the offset of the first cluster (after adding in the offset) relative to the file
 	fseek(fd, (firstClusterSector((int)chain[firstCluster]) * bpb.bpb_bytesPerSec) + firstClusterOffset, SEEK_SET);
