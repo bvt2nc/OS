@@ -96,10 +96,10 @@ int main() {
 //Allocates memory to global arrays used by core functions
 void init()
 {
-    fd = fopen("sampledisk32.raw", "rb+");
+    //fd = fopen("sampledisk32.raw", "rb+");
 	//If you don't want to do the below, uncomment above statement
 	//Assumes sampledisk32.raw is in the same directory as code
-    //fd = fopen(getenv("FAT_FS_PATH"), "rb"); //get the env var FAT_FS_PATH
+    fd = fopen(getenv("FAT_FS_PATH"), "rb+"); //get the env var FAT_FS_PATH
 	//Assuming it has been set though...
 
     fseek(fd, 0, SEEK_SET);
@@ -763,7 +763,7 @@ int OS_read(int fildes, void *buf, int nbyte, int offset)
    		firstCluster++;
 	}
 
-   	return 1;
+   	return nbyte;
 }
 
 
@@ -1179,6 +1179,79 @@ int OS_write(int fildes, const void *buf, int nbyte, int offset)
 {
 	if(start == 0)
 		init();
+	
+	dirEnt dir = openDir[fildes];
+	if(dir.dir_name[0] == 0x00) //If file location is empty, throw shell error
+		return -1;
 
-	return -1;
+	//Get the cluster chain and its length
+	unsigned int * chain = clusterChain(dir.dir_fstClusLO);
+	int length = clusterChainSize(dir.dir_fstClusLO, 0);
+	int clusterLengthOfBuffer = ((nbyte + offset + 1) / bytesPerClus);
+	int emptyCluster;
+	int i;
+
+	if(clusterLengthOfBuffer > length) //if we need to write beyond the dedicated cluster chain
+	{
+		while(length < clusterLengthOfBuffer)
+		{
+			emptyCluster = findEmptyCluster();
+			fatTable[chain[length - 1]] = emptyCluster;
+			fatTable[emptyCluster] = 0xFFFFFFF;
+			chain = clusterChain(dir.dir_fstClusLO);
+			length++;
+		}
+   		fseek(fd, bpb.bpb_rsvdSecCnt * bpb.bpb_bytesPerSec, SEEK_SET);
+		fwrite(fatTable, sizeof(uint32_t), FATSz * bpb.bpb_bytesPerSec / sizeof(uint32_t), fd);
+
+		//update the size of the file
+		dir.dir_fileSize = offset + nbyte;
+		fseek(fd, firstClusterSector(dir.dir_fstClusLO) * bpb.bpb_bytesPerSec, SEEK_SET);
+		fwrite(&dir, sizeof(dirEnt), 1, fd);
+	}
+
+	int bytesWritten = 0;
+	int firstCluster = offset / bytesPerClus;
+	int firstClusterOffset = offset % bytesPerClus;
+	int bytesToWrite = nbyte; //var used to hold specifically how many bytes to read
+
+	/*printf("firstCluster: %d \n", firstCluster);
+	printf("firstClusterOffset: %d \n", firstClusterOffset);
+	printf("bytesToRead: %d \n", bytesToRead);
+	printf("firstChainCluster: 0x%x \n", (int)chain[firstCluster]);*/
+
+	//Write the data at the offset of the first cluster (after adding in the offset) relative to the file
+	fseek(fd, (firstClusterSector((int)chain[firstCluster]) * bpb.bpb_bytesPerSec) + firstClusterOffset, SEEK_SET);
+	fwrite(buf, bytesToWrite, 1, fd);
+	//Increment local variables to continue writing (if needed) the next cluster(s) in the chain
+	bytesWritten += bytesToWrite;
+	firstCluster++;
+	bytesToWrite = nbyte - bytesWritten;
+
+	//while there are still bytes left to be write
+	while(bytesWritten < nbyte || bytesToWrite > 0)
+	{
+		//Make sure we aren't writing more bytes there are in a cluster again
+		if(bytesToWrite > bytesPerClus)
+		{
+			bytesToWrite = bytesPerClus;
+		}
+
+		//read the data of that cluster into buffer
+		fseek(fd, firstClusterSector((int)chain[firstCluster]) * bpb.bpb_bytesPerSec, SEEK_SET);
+   		fwrite(buf + bytesWritten, bytesToWrite, 1, fd);
+   		bytesWritten += bytesToWrite;
+   		bytesToWrite = nbyte - bytesWritten;
+   		firstCluster++;
+	}
+
+	if(offset + nbyte > dir.dir_fileSize)
+	{
+		//update the size of the file
+		dir.dir_fileSize = offset + nbyte;
+		fseek(fd, firstClusterSector(dir.dir_fstClusLO) * bpb.bpb_bytesPerSec, SEEK_SET);
+		fwrite(&dir, sizeof(dirEnt), 1, fd);
+	}
+
+   	return nbyte;
 }
