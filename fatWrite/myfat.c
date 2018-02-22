@@ -60,9 +60,9 @@ int main() {
     OS_cd("../PEOPLE");*/
     //findEmptyCluster();
     OS_cd("MEDIA");
-	int status = OS_mkdir("TEST1");
+	int status = OS_mkdir("TEST2");
 	printf("mkdir status: %d \n", status);
-	status = OS_creat("MEDIA/TEST.XT");
+	status = OS_rmdir("TEST2");
 	printf("rm status: %d \n", status);    
 	dirEnt * currentDirs = OS_readDir(".");
     int i;
@@ -74,14 +74,14 @@ int main() {
     	printDir(currentDirs[i]);
     }
     printf("==========================================\n");
-    currentDirs = OS_readDir("TEST1");
+    /*currentDirs = OS_readDir("TEST1");
     for(i = 0; i < 128; i++)
     {
     	if(currentDirs[i].dir_name[0] == 0x00)
     		break;
 
     	printDir(currentDirs[i]);
-    }
+    }*/
     status = OS_open("~/MEDIA/EPAA22~1.JPG");
     printf("open status: %d \n", status);
     /*init();
@@ -935,7 +935,6 @@ int createFile(const char *path, int isDir)
 	for(i = 0; i < length; i++)
 	{
 		offset = firstClusterSector(chain[i]) * bpb.bpb_bytesPerSec;
-		printf("chain: %d \n", chain[i]);
 		//Loop through each entry (32 bytes long)
 	   	for(inc = 0; inc < bytesPerClus ; inc += 32)
 	   	{
@@ -1127,20 +1126,20 @@ int removeFile(const char * path, int isDir)
 		   		if(isDir && dir.dir_attr != 0x10) //specified we were removing a dir and it is not a dir
 		   			return -2;
 
-				fatTable[dir.dir_fstClusLO] = 0x0;
 		   		fileChainSize = clusterChainSize(dir.dir_fstClusLO, 0);
 		   		if(fileChainSize > 1)
 		   		{
 		   			fileChain = clusterChain(dir.dir_fstClusLO);
 		   			for(i = 0; i < fileChainSize; i++)
 		   			{
-		   				fatTable[fileChain[i]] = 0x0;
-		   				clusterOffset = firstClusterSector(chain[i]) * bpb.bpb_bytesPerSec;
+		   				fatTable[fileChain[i]] = 0xFFFFFFF;
+		   				clusterOffset = firstClusterSector(fileChain[i]) * bpb.bpb_bytesPerSec;
 		   				fseek(fd, clusterOffset, SEEK_SET);
 		   				emptyDir = (dirEnt*)malloc(sizeof(dirEnt)); //empty dirEnt
 		   				fwrite(emptyDir, sizeof(dirEnt), 1, fd);
 		   			}
 		   		}
+		   		fatTable[dir.dir_fstClusLO] = 0x0;
 		   		fseek(fd, bpb.bpb_rsvdSecCnt * bpb.bpb_bytesPerSec, SEEK_SET);
 				fwrite(fatTable, sizeof(uint32_t), FATSz * bpb.bpb_bytesPerSec / sizeof(uint32_t), fd);
 
