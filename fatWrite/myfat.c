@@ -736,7 +736,10 @@ int OS_read(int fildes, void *buf, int nbyte, int offset)
 	//If the offset or nbytes to be read is larger than the size (in bytes)
 	//the cluster link occupies, send signal to throw error
 	if(nbyte + offset > dir.dir_fileSize)
+	{
+		printf("dir file size: %d \n", dir.dir_fileSize);
 		return -1;
+	}
 
 	int bytesRead = 0;
 	int firstCluster = offset / bytesPerClus;
