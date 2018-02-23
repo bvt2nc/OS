@@ -1249,6 +1249,7 @@ int OS_write(int fildes, const void *buf, int nbyte, int offset)
 
 		//update the size of the file
 		dir.dir_fileSize = offset + nbyte;
+		openDir[fildes] = dir;
 		fseek(fd, openDirOffset[fildes], SEEK_SET);
 		fwrite(&dir, sizeof(dirEnt), 1, fd);
 	}
@@ -1257,6 +1258,7 @@ int OS_write(int fildes, const void *buf, int nbyte, int offset)
 	{
 		//update the size of the file
 		dir.dir_fileSize = offset + nbyte;
+		openDir[fildes] = dir;
 		fseek(fd, openDirOffset[fildes], SEEK_SET);
 		fwrite(&dir, sizeof(dirEnt), 1, fd);
 	}
