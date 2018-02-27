@@ -313,9 +313,20 @@ unsigned int * clusterChain(int cluster)
 //Read FAT table into memory
 void readFatTable(FILE * fd)
 {
-	fatTable = (uint32_t *)malloc(FATSz * bpb.bpb_bytesPerSec);
-	fseek(fd, bpb.bpb_rsvdSecCnt * bpb.bpb_bytesPerSec, SEEK_SET);
-	fread(fatTable, sizeof(uint32_t), FATSz * bpb.bpb_bytesPerSec / sizeof(uint32_t), fd);
+	if(fatType == 32)
+	{
+		fatTable = (uint32_t *)malloc(FATSz * bpb.bpb_bytesPerSec);
+		fseek(fd, bpb.bpb_rsvdSecCnt * bpb.bpb_bytesPerSec, SEEK_SET);
+		fread(fatTable, sizeof(uint32_t), FATSz * bpb.bpb_bytesPerSec / sizeof(uint32_t), fd);
+	}
+	else if(fatType == 16)
+	{
+		fatTable = (uint32_t *)malloc(FATSz * bpb.bpb_bytesPerSec);
+		fseek(fd, bpb.bpb_rsvdSecCnt * bpb.bpb_bytesPerSec, SEEK_SET);
+		fread(fatTable, sizeof(uint32_t), FATSz * bpb.bpb_bytesPerSec / sizeof(uint32_t), fd);
+	}
+
+	printf("there's a problem...\n");
 	/*
 	printf("done reading \n");
 	int i;
