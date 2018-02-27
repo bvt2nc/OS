@@ -411,11 +411,20 @@ char * dirName(dirEnt dir, int file)
 	if(file == 1)
 		max = 11;
 
-   	for(i = 0; i < max; i++)
+   	for(i = 0; i < 8; i++)
    	{
    		str[i] = dir.dir_name[i];
    		//printf("%d ", str[i]);
    	}
+	
+	if(file == 1)
+	{
+		str[8] = '.';
+		str[9] = dir.dir_name[8];
+		str[10] = dir.dir_name[9];
+		str[11] = dir.dir_name[10];
+	}
+
    	return str;
 }
 
@@ -478,6 +487,7 @@ dirEnt * OS_readDir(const char *dirname)
 	int length = clusterChainSize(cwd.dir_fstClusLO, 0);
 	if(length > 1)
 	{
+		offset = firstClusterSector(tableValue(cwd.dir_fstClusLO)) * bpb.bpb_bytesPerSec;
 		inc = 0;
 	   	//Loop through each entry (32 bytes long)
 	   	for(inc = 0; inc < bytesPerClus ; inc += 32)
@@ -549,7 +559,7 @@ int OS_open(const char *path)
 
 	//See cd
 	//tldr; Reparse the path to get rid of garbage at the end if the short name is smaller than the max allowed
-	for(i = 0; i < 11; i++)
+	for(i = 0; i < 12; i++)
 	{
 		if(terminate == 1)
 		{
