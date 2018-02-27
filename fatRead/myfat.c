@@ -22,6 +22,7 @@ int cwdCluster; //current working directory cluster used throughout code to repr
 FILE * fd;
 
 void init();
+char * makeUpper(char * path);
 int firstClusterSector(int n);
 void printDir(dirEnt dir);
 void recurseThroughDir(FILE *fd, int offset);
@@ -167,6 +168,17 @@ void recurseThroughDir(FILE * fd, int offset)
 	}
 }
 
+char * makeUpper(char * path)
+{
+	int i;
+	char * ret = malloc(sizeof(char) * strlen(path));
+	for(i = 0; i < strlen(path); i++)
+	{
+		ret[i] = toupper((char) path[i]);
+	}
+	return ret;
+}
+
 //As described in the FAT spec, returns the first sector of the specified cluster
 //relative to the entire disk
 int firstClusterSector(int n)
@@ -286,6 +298,8 @@ int OS_cd(const char *path)
 	if(start == 0)
 		init();
 
+	path = makeUpper((char *)path);
+
 	//If path is an absolute path starting at the root directory
 	if(path[0] == '/')
 	{
@@ -365,6 +379,8 @@ int OS_cd(const char *path)
 //Helper function to change to cwd to an absolute path
 int cdAbsolute(const char * path)
 {
+	path = makeUpper((char *)path);
+
 	int i, status;
 	char * subPath = (char *)malloc(sizeof(char) * 8);
 	int index = 0;
@@ -441,6 +457,11 @@ char * dirName(dirEnt dir, int file)
 //		ls ~/PEOPLE/BVT2NC		NOT IMPLEMENTED
 dirEnt * OS_readDir(const char *dirname)
 {
+	if(start == 0)
+		init();
+
+	dirname = makeUpper((char *)dirname);
+
 	int tempCWD = 0;
 	//If absolute path, save the cwdcluster to be loaded back again at end of function and cd
 	if(dirname[0] != '.')
@@ -451,9 +472,6 @@ dirEnt * OS_readDir(const char *dirname)
 	}
 
 	dirEnt* ls = (dirEnt*)malloc(sizeof(dirEnt) * 128);
-
-	if(start == 0)
-		init();
 
 	int inc, offset;
 	int count = 0;
@@ -521,6 +539,8 @@ int OS_open(const char *path)
 {
 	if(start == 0)
 		init();
+
+	path = makeUpper((char *)path);
 
 	//If long relative path (leading to ther directories other than current)
 	if(strstr(path, "/"))
