@@ -1198,6 +1198,7 @@ int removeFile(const char * path, int isDir)
 				}
 
 				emptyDir = (dirEnt*)malloc(sizeof(dirEnt)); //empty dirEnt
+				(*emptyDir).dir_name[0] = 0xE5;
 				fseek(fd, offset + inc, SEEK_SET);
 		   		fwrite(emptyDir, sizeof(dirEnt), 1, fd);
 		   		return 1;
