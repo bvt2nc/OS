@@ -891,7 +891,14 @@ int createFile(const char *path, int isDir)
 
 	path = makeUpper((char *)path);
 
+	//save originalPath in case we need to cluster chain
 	int i;
+	char * originalPath = (char*)malloc(sizeof(char) * strlen(path));
+	for(i = 0; i < strlen(path); i++)
+	{
+		originalPath[i] = path[i];
+	}
+
 	int terminate = 0;
 	int tempCWD = cwdCluster;
 	//If long relative path (leading to ther directories other than current)
@@ -1025,8 +1032,15 @@ int createFile(const char *path, int isDir)
 		}
 	}
 
+	//There is no space left... need to cluster chain
+	nextEmptyCluster = findEmptyCluster();
+	fatTable[chain[length - 1]] = emptyCluster;
+	fatTable[nextEmptyCluster] = 0xFFFFFFF;
+   	fseek(fd, bpb.bpb_rsvdSecCnt * bpb.bpb_bytesPerSec, SEEK_SET);
+	fwrite(fatTable, sizeof(uint32_t), FATSz * bpb.bpb_bytesPerSec / sizeof(uint32_t), fd);
+
 	cwdCluster = tempCWD;
-	return -1;
+	return creatFile(originalPath, isDir);
 }
 
 dirEnt writeDir(dirEnt dir, char* path, int cluster, int isDir)
