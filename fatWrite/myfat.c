@@ -618,7 +618,7 @@ dirEnt * OS_readDir(const char *dirname)
 	//Loope through each directory cluster chain
 	for(i = 0; i < length; i++)
 	{
-		offset = firstClusterSector(chain[1]) * bpb.bpb_bytesPerSec;
+		offset = firstClusterSector(chain[i]) * bpb.bpb_bytesPerSec;
 	   	//Loop through each entry (32 bytes long)
 	   	for(inc = 0; inc < bytesPerClus ; inc += 32)
 	   	{
