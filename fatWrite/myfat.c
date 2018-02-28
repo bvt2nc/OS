@@ -105,10 +105,10 @@ int main() {
 //Allocates memory to global arrays used by core functions
 void init()
 {
-    fd = fopen("sampledisk16.raw", "rb+");
+    //fd = fopen("sampledisk16.raw", "rb+");
 	//If you don't want to do the below, uncomment above statement
 	//Assumes sampledisk32.raw is in the same directory as code
-    //fd = fopen(getenv("FAT_FS_PATH"), "rb+"); //get the env var FAT_FS_PATH
+    fd = fopen(getenv("FAT_FS_PATH"), "rb+"); //get the env var FAT_FS_PATH
 	//Assuming it has been set though...
 
     fseek(fd, 0, SEEK_SET);
@@ -1035,7 +1035,7 @@ int createFile(const char *path, int isDir)
 	int length = clusterChainSize(cwd.dir_fstClusLO, 0);
 	unsigned int * chain = clusterChain(cwd.dir_fstClusLO);
 	if(chain[0] == 0)
-		chain[0] = 2;
+		chain[0] = rootCluster;
 
 	for(i = 0; i < length; i++)
 	{
