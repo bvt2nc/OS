@@ -69,9 +69,9 @@ int main() {
 	printf("mkdir status: %d \n", status);
 	status = OS_rmdir("test2");
 	printf("rm status: %d \n", status);    
-	dirEnt * currentDirs = OS_readDir(".");
+	dirEnt * currentDirs = OS_readDir("~/test");
     int i;
-    for(i = 0; i < 128; i++)
+    for(i = 0; i < 256; i++)
     {
     	if(currentDirs[i].dir_name[0] == 0x00)
     		break;
@@ -325,8 +325,8 @@ void readFatTable(FILE * fd)
 		fseek(fd, bpb.bpb_rsvdSecCnt * bpb.bpb_bytesPerSec, SEEK_SET);
 		fread(fatTable, sizeof(uint32_t), FATSz * bpb.bpb_bytesPerSec / sizeof(uint32_t), fd);
 	}
-
-	printf("there's a problem...\n");
+	else
+		printf("there's a problem...\n");
 	/*
 	printf("done reading \n");
 	int i;
@@ -369,16 +369,17 @@ int OS_cd(const char *path)
 		cwdCluster = 2;
 		status = cdAbsolute(path);
 		if(status == -1)
-		{
 			cwdCluster = tempCWD;
-			return -1;
-		}
+		return status;
 	}
 
 	//If it is a long relative path leading to other directories
 	if(strstr(path, "/"))
 	{
-		return cdAbsolute(path);
+		status = cdAbsolute(path);
+		if(status == -1)
+			cwdCluster = tempCWD;
+		return status;
 	}
 
 	if(path[0] == '~')
@@ -635,6 +636,9 @@ int OS_open(const char *path)
 				index = 0;
 				//We are only looking for directories so we don't care about ext
 				subPath = (char *)malloc(sizeof(char) * 8);
+				
+				if(status == -1 && i != 0)
+					return -1;
 			}
 			else //keep finding more of the subpath
 			{
@@ -714,7 +718,7 @@ int OS_open(const char *path)
 	}
 
 	//Loop through all the directories in cwd
-	for(i = 0; i < 128; i++)
+	for(i = 0; i < 256; i++)
 	{
 		if(dir[i].dir_name[0] == 0x00)
 		{
