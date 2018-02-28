@@ -300,6 +300,12 @@ int OS_cd(const char *path)
 
 	path = makeUpper((char *)path);
 
+	if(path[0] == '/' && path[1] == 0)
+	{
+		cwdCluster = 2;
+		return 1;
+	}
+
 	//If path is an absolute path starting at the root directory
 	if(path[0] == '/')
 	{
@@ -384,9 +390,14 @@ int cdAbsolute(const char * path)
 	int i, status;
 	char * subPath = (char *)malloc(sizeof(char) * 8);
 	int index = 0;
+	int tempCWD = cwdCluster;
+	int begin = 0;
+
+	if(path[0] == '/')
+		begin = 1;
 
 	//Parse through path by finding the 'subpath' (.../*THIS_IS_THE_SUBPATH*/...)
-	for(i = 0; i < strlen(path); i++)
+	for(i = begin; i < strlen(path); i++)
 	{
 		if(path[i] == '/') //reached beginning/end of subpath
 		{
@@ -398,6 +409,7 @@ int cdAbsolute(const char * path)
 
 			if(status == -1)
 			{
+				cwdCluster = tempCWD;
 				return -1;
 			}
 		}
@@ -411,7 +423,10 @@ int cdAbsolute(const char * path)
 
 	status = OS_cd(subPath);
 	if(status == -1)
+	{
+		cwdCluster = tempCWD;
 		return -1;
+	}
 
 	return 1;
 }
