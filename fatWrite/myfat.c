@@ -1147,6 +1147,8 @@ dirEnt writeDir(dirEnt dir, char* path, int cluster, int isDir)
 
 int removeFile(const char * path, int isDir)
 {
+	isDir = isDir;
+	//printf("isDir: %d \n", isDir);
 	if(start == 0)
 		init();
 
