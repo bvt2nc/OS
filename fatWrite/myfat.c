@@ -1,4 +1,4 @@
-x#include "myfat.h"
+#include "myfat.h"
 #include <stdio.h>
 #include <stdlib.h>
 #include <stdint.h>
@@ -1051,14 +1051,14 @@ int createFile(const char *path, int isDir)
 	}
 
 	//There is no space left... need to cluster chain
-	nextEmptyCluster = findEmptyCluster();
+	int nextEmptyCluster = findEmptyCluster();
 	fatTable[chain[length - 1]] = emptyCluster;
 	fatTable[nextEmptyCluster] = 0xFFFFFFF;
    	fseek(fd, bpb.bpb_rsvdSecCnt * bpb.bpb_bytesPerSec, SEEK_SET);
 	fwrite(fatTable, sizeof(uint32_t), FATSz * bpb.bpb_bytesPerSec / sizeof(uint32_t), fd);
 
 	cwdCluster = tempCWD;
-	return creatFile(originalPath, isDir);
+	return createFile(originalPath, isDir);
 }
 
 dirEnt writeDir(dirEnt dir, char* path, int cluster, int isDir)
