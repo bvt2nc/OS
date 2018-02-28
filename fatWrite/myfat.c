@@ -604,42 +604,20 @@ dirEnt * OS_readDir(const char *dirname)
 		}
 	}
 
-	int inc, offset;
+	int inc, offset, i;
 	int count = 0;
-   	dirEnt dir;
-   	offset = firstClusterSector(cwdCluster) * bpb.bpb_bytesPerSec;
-
-   	//Loop through each entry (32 bytes long)
-   	for(inc = 0; inc < bytesPerClus ; inc += 32)
-   	{
-	   	fseek(fd, offset + inc, SEEK_SET);
-	   	fread(&dir, sizeof(dirEnt), 1, fd);
-	   	if(dir.dir_name[0] == 0x00) //last entry
-	   		break;
-	   	if(dir.dir_name[0] == 0xE5) 
-	   		continue;
-	   	if(dir.dir_attr == 8 || dir.dir_attr == 15) //special case
-	   		continue;
-
-	   	ls[count] = dir;
-	   	if(opening == 1)
-		   	tempOpenDirOffset[count] = offset + inc; 
-	   	count++;
-	   	//printDir(dir);
-	}
-
-	//If there is a cluster chain for the directory
-	dirEnt cwd;
+   	dirEnt dir, cwd;
 	offset = firstClusterSector(cwdCluster) * bpb.bpb_bytesPerSec;
 	fseek(fd, offset, SEEK_SET);
 	fread(&cwd, sizeof(dirEnt), 1, fd);
-
 	int length = clusterChainSize(cwd.dir_fstClusLO, 0);
-	//printf("length: %d \n", length);
-	if(length > 1)
+	unsigned int * chain = clusterChain(cwd.dir_fstClusLO);
+	if(chain[0] == 0)
+		chain[0] = rootCluster;
+
+	//Loope through each directory cluster chain
+	for(i = 0; i < length; i++)
 	{
-		inc = 0;
-		unsigned int * chain = clusterChain(cwd.dir_fstClusLO);
 		offset = firstClusterSector(chain[1]) * bpb.bpb_bytesPerSec;
 	   	//Loop through each entry (32 bytes long)
 	   	for(inc = 0; inc < bytesPerClus ; inc += 32)
@@ -1105,11 +1083,6 @@ int createFile(const char *path, int isDir)
 	if(chain[0] == 0)
 		chain[0] = rootCluster;
 
-	printf("chain: ");
-	for(i = 0; i < length; i++)
-		printf("%d ", chain[i]);
-	printf("\n");
-
 	//Loops through the directory cluster chain for the first free entry
 	for(i = 0; i < length; i++)
 	{
@@ -1171,15 +1144,6 @@ int createFile(const char *path, int isDir)
 	   	fseek(fd, bpb.bpb_rsvdSecCnt * bpb.bpb_bytesPerSec, SEEK_SET);
 		fwrite(fatTable32, sizeof(uint32_t), FATSz * bpb.bpb_bytesPerSec / sizeof(uint32_t), fd);
 	}
-	length = clusterChainSize(cwd.dir_fstClusLO, 0);
-	chain = clusterChain(cwd.dir_fstClusLO);
-	if(chain[0] == 0)
-		chain[0] = rootCluster;
-
-	printf("chain: ");
-	for(i = 0; i < length; i++)
-		printf("%d ", chain[i]);
-	printf("\n");
 
 	//Recall the function now that there is space
 	cwdCluster = tempCWD;
