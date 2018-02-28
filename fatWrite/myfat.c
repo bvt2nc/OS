@@ -71,6 +71,8 @@ int main() {
     printf("cd status: %d \n", status);
 	status = OS_mkdir("test2");
 	printf("mkdir status: %d \n", status);
+	status = OS_creat("test2/test.txt");
+	printf("creat status: %d \n", status);
 	status = OS_rmdir("test2");
 	printf("rm status: %d \n", status);    
 	/*dirEnt * currentDirs = OS_readDir(".");
@@ -105,7 +107,7 @@ int main() {
 //Allocates memory to global arrays used by core functions
 void init()
 {
-    //fd = fopen("sampledisk16.raw", "rb+");
+    //fd = fopen("sampledisk32.raw", "rb+");
 	//If you don't want to do the below, uncomment above statement
 	//Assumes sampledisk32.raw is in the same directory as code
     fd = fopen(getenv("FAT_FS_PATH"), "rb+"); //get the env var FAT_FS_PATH
@@ -1150,7 +1152,14 @@ int removeFile(const char * path, int isDir)
 
 	path = makeUpper((char *)path);
 
+	//save originalPath for reference
 	int i;
+	char * originalPath = (char*)malloc(sizeof(char) * strlen(path));
+	for(i = 0; i < strlen(path); i++)
+	{
+		originalPath[i] = path[i];
+	}
+
 	int terminate = 0;
 	int tempCWD = cwdCluster;
 	//If long relative path (leading to ther directories other than current)
@@ -1224,7 +1233,7 @@ int removeFile(const char * path, int isDir)
 		}
 	}
 
-	int inc, offset, clusterOffset, cmp;
+	int inc, offset, clusterOffset, cmp, iDir;
    	dirEnt dir, cwd;
    	int emptyCluster = findEmptyCluster();
    	unsigned int * fileChain;
@@ -1299,8 +1308,18 @@ int removeFile(const char * path, int isDir)
 					fwrite(fatTable32, sizeof(uint32_t), FATSz * bpb.bpb_bytesPerSec / sizeof(uint32_t), fd);					
 				}
 
-				if(isDir) //if we are removing a directory, we must remove the dot and dotdot files
+				if(isDir) //if we are removing a directory
 				{
+					//check if there are other files in the directory (other than dot and dotdot)
+					dirEnt * ls = OS_readDir(originalPath);
+					for(iDir = 0; iDir < 256; iDir++)
+					{
+						//If file is not empty or a dot directory
+						if(ls[iDir].dir_name[0] != 0x00 && ls[iDir].dir_name[0] != 0xE5 && ls[iDir].dir_name[0] != '.')
+							return -3;
+					}
+
+					//remove the dot and dotdot files
 					clusterOffset = firstClusterSector(dir.dir_fstClusLO) * bpb.bpb_bytesPerSec;
 					emptyDir = (dirEnt*)malloc(sizeof(dirEnt)); //empty dirEnt
 					fseek(fd, clusterOffset, SEEK_SET);
