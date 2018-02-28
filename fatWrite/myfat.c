@@ -1,3 +1,44 @@
+/*
+FAT Read and Write Implementation for FAT16 and FAT32
+
+CS4414 Operating Systems
+Spring 2018
+
+Benjamin Trans (bvt2nc)
+
+myfat.c - FAT read and write API
+
+Code written solely by Benjamin Trans. Only references made were to the provided
+FATSPEC
+
+The following code implements the read and write API for FAT file systems (FAT16 and FAT32).
+We refer the rader to the assignment writeup for all of the details.
+
+	COMPILE:		make
+	OBJECTS:		myfat.o
+					fat_tester.o
+	HEADERS:		myfat.h
+	MAKEFILE:		Makefile
+
+	MODIFICATIONS:
+			Feb 12 -	Completed READ API. "myfat.c" may be compiled to invoke 
+						the required read calls as specified by the shell testing
+						manual
+			Feb 20 - 	Begin WRITE API. Fix bug in OS_readDir
+			Feb 21 - 	Made acceptance of filepaths more robust. Captilazation
+						no longer matters. Completed majority of creation 
+						and deletion of files/directories.
+			Feb 22 - 	Finished WRITE API... testing still needed
+			Feb 23 - 	Basic testing completed
+			Feb 27 - 	Bug fixes and added cluster chaining to createFile if there
+						is no more room in a directory to store files in a single
+						cluster.
+			Feb 28 - 	Implemented FAT16. Fix bug with absolute paths. Created
+						small workaround that prevented a directory from being
+						deleted even if it wasn't empty if the user called
+						rm and rmdir on the directory in succession (still
+						inexplainable and should be investigated in detail)
+*/
 #include "myfat.h"
 #include <stdio.h>
 #include <stdlib.h>
@@ -224,6 +265,7 @@ void recurseThroughDir(FILE * fd, int offset)
 	}
 }
 
+//Function to capitalize all characters in the given arguement
 char * makeUpper(char * path)
 {
 	int i;
@@ -348,7 +390,7 @@ void readFatTable(FILE * fd)
 		fseek(fd, bpb.bpb_rsvdSecCnt * bpb.bpb_bytesPerSec, SEEK_SET);
 		fread(fatTable16, sizeof(uint16_t), FATSz * bpb.bpb_bytesPerSec / sizeof(uint16_t), fd);
 	}
-	else
+	else //should never be reached if correct disk inputted
 		printf("there's a problem...\n");
 	/*
 	printf("done reading \n");
@@ -361,16 +403,16 @@ void readFatTable(FILE * fd)
 }
 
 //Changes working directory to path
-//Path must either be an absolute path starting at the root directory
-//or must be a relative path only to an immediate folder
-//Use '~' to go back to the root directory
+//Path must either be an absolute or a relative 
+//path starting at the root directory
+//
+//Use '~' or '/' to go back to the root directory
 //Use .. to go to back to parent directory
 //
 //EX:	cd path
 //		cd /PEOPLE/BVT2NC 		GOOD
 //		cd PEOPLE				GOOD
 //		cd ~					GOOD
-//		cd ~/PEOPLE/BVT2NC		NOT IMPLEMENTED
 int OS_cd(const char *path)
 {	
 	if(start == 0)
@@ -442,7 +484,7 @@ int OS_cd(const char *path)
 	}
 
 	//Parse through all directories in cwd
-	for(i = 0; i < 128; i++)
+	for(i = 0; i < 1024; i++)
 	{
 		dir = lsDir[i];
 		if(dir.dir_name[0] == 0) //If last entry
@@ -488,7 +530,8 @@ int cdAbsolute(const char * path)
 			//We are only looking for directories so we don't care about ext
 			subPath = (char *)malloc(sizeof(char) * 8);
 
-			if(status == -1 && i != 0)
+			//If cd into subpath was not successful and the first character is not '/'
+			if(status == -1 && i != 0) 
 			{
 				return -1;
 			}
@@ -502,6 +545,7 @@ int cdAbsolute(const char * path)
 	}
 
 	status = OS_cd(subPath);
+	//For relative path, the part remaining in subpath is the end of the file
 	if(status == -1)
 		return -1;
 
@@ -528,23 +572,22 @@ char * dirName(dirEnt dir, int file)
 }
 
 //Functions in the exact same way as ls
-//Path must either be an absolute path starting at the root directory
-//or must be a relative path only to an immediate folder
-//Use '~' to go back to the root directory
+//Path must either be an absolute path or relative path
+//starting at the root directory
+//Use '~' or '/' to go back to the root directory
 //By default (if dirname is left blank) the shell will make dirname = "."
 //
 //EX:	ls dirname
 //		ls /PEOPLE/BVT2NC 		GOOD
 //		ls PEOPLE				GOOD
 //		ls ~					GOOD
-//		ls ~/PEOPLE/BVT2NC		NOT IMPLEMENTED
 dirEnt * OS_readDir(const char *dirname)
 {
 	if(start == 0)
 		init();
 
 	dirname = makeUpper((char *)dirname);
-	dirEnt* ls = (dirEnt*)malloc(sizeof(dirEnt) * 256);
+	dirEnt* ls = (dirEnt*)malloc(sizeof(dirEnt) * 1024);
 
 	int tempCWD = 0;
 	int status = 0;
@@ -639,6 +682,10 @@ int OS_open(const char *path)
 	path = makeUpper((char *)path);
 
 	int tempCWD = cwdCluster;
+	//Keep track of the offset of opened files
+	//This is helpful for the implementation of write
+	//to update the filesize instead of researching to find the
+	//offset
 	opening = 1;
 	tempOpenDirOffset = (int*)malloc(sizeof(int) * 128);
 
@@ -741,7 +788,7 @@ int OS_open(const char *path)
 	}
 
 	//Loop through all the directories in cwd
-	for(i = 0; i < 256; i++)
+	for(i = 0; i < 1024; i++)
 	{
 		if(dir[i].dir_name[0] == 0x00)
 		{
@@ -866,6 +913,10 @@ int OS_read(int fildes, void *buf, int nbyte, int offset)
 
 //========================================================WRITE=================================================
 
+/*
+Finds the first empty cluster by doing a linear search through the 
+FAT table
+*/
 int findEmptyCluster()
 {
 	int size;
@@ -887,6 +938,10 @@ int findEmptyCluster()
 	return -1;
 }
 
+/*
+returns the last subpath in path
+ex: a/b/c/~THIS IS THE LAST PART~
+*/
 char * goToEndOfFilePath(const char *path)
 {
 	int i, status;
@@ -923,15 +978,26 @@ char * goToEndOfFilePath(const char *path)
 	return subPath;
 }
 
+/*
+Calls the function removeFile which handles all deletion
+*/
 int OS_rmdir(const char *path)
 {
 	return removeFile(path, 1);
 }
+
+/*
+Calls the function createFile which handles all creation
+*/
 int OS_mkdir(const char *path)
 {
 	return createFile(path, 1);
 }
 
+/*
+Creates all files (whether they be files or directories)
+Will not create duplicates!
+*/
 int createFile(const char *path, int isDir)
 {
 	if(start == 0)
@@ -1039,6 +1105,7 @@ int createFile(const char *path, int isDir)
 	if(chain[0] == 0)
 		chain[0] = rootCluster;
 
+	//Loops through the directory cluster chain for the first free entry
 	for(i = 0; i < length; i++)
 	{
 		offset = firstClusterSector(chain[i]) * bpb.bpb_bytesPerSec;
@@ -1054,12 +1121,15 @@ int createFile(const char *path, int isDir)
 		   		return -2;
 		   	}
 
+		   	//Free entry found
 		   	if(dir.dir_name[0] == 0xE5 || dir.dir_name[0] == 0x00) 
 		   	{
+		   		//Write the dirEnt
 		   		dir = writeDir(dir, realPath, emptyCluster, isDir);
 		   		fseek(fd, offset + inc, SEEK_SET);
 		   		fwrite(&dir, sizeof(dirEnt), 1, fd);
 
+		   		//create the dot and dotdot entries
 		   		if(isDir)
 		   		{
 		   			offset = firstClusterSector(dir.dir_fstClusLO) * bpb.bpb_bytesPerSec;
@@ -1084,23 +1154,25 @@ int createFile(const char *path, int isDir)
 	int nextEmptyCluster = findEmptyCluster();
 	if(fatType == 16)
 	{
-		fatTable16[chain[length - 1]] = emptyCluster;
+		fatTable16[chain[length - 1]] = nextEmptyCluster;
 		fatTable16[nextEmptyCluster] = 0xFFFF;
 	   	fseek(fd, bpb.bpb_rsvdSecCnt * bpb.bpb_bytesPerSec, SEEK_SET);
 		fwrite(fatTable16, sizeof(uint16_t), FATSz * bpb.bpb_bytesPerSec / sizeof(uint16_t), fd);
 	}
 	else
 	{
-		fatTable32[chain[length - 1]] = emptyCluster;
+		fatTable32[chain[length - 1]] = nextEmptyCluster;
 		fatTable32[nextEmptyCluster] = 0xFFFFFFF;
 	   	fseek(fd, bpb.bpb_rsvdSecCnt * bpb.bpb_bytesPerSec, SEEK_SET);
 		fwrite(fatTable32, sizeof(uint32_t), FATSz * bpb.bpb_bytesPerSec / sizeof(uint32_t), fd);
 	}
 
+	//Recall the function now that there is space
 	cwdCluster = tempCWD;
 	return createFile(originalPath, isDir);
 }
 
+//Helper function to create the dirEnt to write as an entry in the directory cluster
 dirEnt writeDir(dirEnt dir, char* path, int cluster, int isDir)
 {
 	int nameLen = 8;
@@ -1145,9 +1217,26 @@ dirEnt writeDir(dirEnt dir, char* path, int cluster, int isDir)
 	return dir;
 }
 
+/*
+Function thta handles all deletion of files (whether they be 
+directories or files)
+
+If deleting a directory, ensures that the directory is empty
+(with the exception of the dot and dotdot entries)
+
+=================================WARNING========================================
+
+There was a bug found with a small workaround implemented!
+If the user calls OS_rm and OS_rmdir in succession on the same  directory
+(regardless of if the directory is empty or not), the directory will be 
+deleted. This was solved by invoking isDir again (meaning that isDir was
+not correctly passed for some reason)
+
+INVESTIGATE FURTHER
+*/
 int removeFile(const char * path, int isDir)
 {
-	isDir = isDir;
+	isDir = isDir; //THIS IS THE WEIRD FIX... see above for explanation
 	//printf("isDir: %d \n", isDir);
 	if(start == 0)
 		init();
@@ -1249,6 +1338,7 @@ int removeFile(const char * path, int isDir)
 	if(chain[0] == 0)
 		chain[0] = rootCluster;
 
+	//loop through the directory cluster chain
 	for(i = 0; i < length; i++)
 	{
 		offset = firstClusterSector(chain[i]) * bpb.bpb_bytesPerSec;
@@ -1271,6 +1361,7 @@ int removeFile(const char * path, int isDir)
 		   		if(isDir && dir.dir_attr != 0x10) //specified we were removing a dir and it is not a dir
 		   			return -2;
 
+		   		//Delete the entire cluster chain in the data region and FAT table to free space
 		   		if(fatType == 16)
 		   		{
 			   		fileChainSize = clusterChainSize(dir.dir_fstClusLO, 0);
@@ -1314,7 +1405,7 @@ int removeFile(const char * path, int isDir)
 				{
 					//check if there are other files in the directory (other than dot and dotdot)
 					dirEnt * ls = OS_readDir(originalPath);
-					for(iDir = 0; iDir < 256; iDir++)
+					for(iDir = 0; iDir < 1024; iDir++)
 					{
 						//If file is not empty or a dot directory
 						if(ls[iDir].dir_name[0] != 0x00 && ls[iDir].dir_name[0] != 0xE5 && ls[iDir].dir_name[0] != '.')
@@ -1331,6 +1422,7 @@ int removeFile(const char * path, int isDir)
 					fwrite(emptyDir, sizeof(dirEnt), 1, fd); //delete dot dot entry
 				}
 
+				//replace the entry in the parent directory with an empty dirEnt
 				emptyDir = (dirEnt*)malloc(sizeof(dirEnt)); //empty dirEnt
 				(*emptyDir).dir_name[0] = 0xE5;
 				fseek(fd, offset + inc, SEEK_SET);
@@ -1344,15 +1436,26 @@ int removeFile(const char * path, int isDir)
 	return -1;
 }
 
+/*
+Calls the function removeFile which handles all deletion
+*/
 int OS_rm(const char *path)
 {
 	return removeFile(path, 0);
 }
 
+/*
+Calls the function createFile which handles all creation
+*/
 int OS_creat(const char *path)
 {
 	return createFile(path, 0);
 }
+
+/*
+Write the contents of buffer to the file described by fildes
+starting at the offset up to nbytes
+*/
 int OS_write(int fildes, const void *buf, int nbyte, int offset)
 {
 	if(start == 0)
