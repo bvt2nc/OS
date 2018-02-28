@@ -1105,6 +1105,11 @@ int createFile(const char *path, int isDir)
 	if(chain[0] == 0)
 		chain[0] = rootCluster;
 
+	printf("chain: ");
+	for(i = 0; i < length; i++)
+		printf("%d ", chain[i]);
+	printf("\n");
+
 	//Loops through the directory cluster chain for the first free entry
 	for(i = 0; i < length; i++)
 	{
@@ -1166,6 +1171,15 @@ int createFile(const char *path, int isDir)
 	   	fseek(fd, bpb.bpb_rsvdSecCnt * bpb.bpb_bytesPerSec, SEEK_SET);
 		fwrite(fatTable32, sizeof(uint32_t), FATSz * bpb.bpb_bytesPerSec / sizeof(uint32_t), fd);
 	}
+	length = clusterChainSize(cwd.dir_fstClusLO, 0);
+	chain = clusterChain(cwd.dir_fstClusLO);
+	if(chain[0] == 0)
+		chain[0] = rootCluster;
+
+	printf("chain: ");
+	for(i = 0; i < length; i++)
+		printf("%d ", chain[i]);
+	printf("\n");
 
 	//Recall the function now that there is space
 	cwdCluster = tempCWD;
