@@ -16,13 +16,16 @@ int numClusters; // number of DATA clusters
 bpbFat32 bpb;
 //int count = 0;
 int fatType = 0;
-uint32_t *fatTable;
+uint32_t *fatTable32;
+uint16_t *fatTable16;
 //uint16_t fatTable[1000];
 int EOC;
 int cwdCluster; //current working directory cluster used throughout code to represent "ptr locaton"
 FILE * fd;
 char * dotName;
 char * dotDotName;
+int rootCluster;
+int firstRootDirSecNum;
 
 void init();
 char * makeUpper(char * path);
@@ -64,12 +67,13 @@ int main() {
     OS_open("EPAA22~1JPG");
     OS_cd("../PEOPLE");*/
     //findEmptyCluster();
-    OS_cd("media");
-	int status = OS_mkdir("test2");
+    int status = OS_cd("/media");
+    printf("cd status: %d \n", status);
+	status = OS_mkdir("test2");
 	printf("mkdir status: %d \n", status);
 	status = OS_rmdir("test2");
 	printf("rm status: %d \n", status);    
-	dirEnt * currentDirs = OS_readDir("~/test");
+	/*dirEnt * currentDirs = OS_readDir(".");
     int i;
     for(i = 0; i < 256; i++)
     {
@@ -77,7 +81,7 @@ int main() {
     		break;
 
     	printDir(currentDirs[i]);
-    }
+    }*/
     printf("==========================================\n");
     /*currentDirs = OS_readDir("TEST1");
     for(i = 0; i < 128; i++)
@@ -87,7 +91,7 @@ int main() {
 
     	printDir(currentDirs[i]);
     }*/
-    status = OS_open("~/media/epaa22~1.jpg");
+    status = OS_open("/media/reflec~1.jpg");
     printf("open status: %d \n", status);
     /*init();
     //readFatTable(fd);
@@ -101,10 +105,10 @@ int main() {
 //Allocates memory to global arrays used by core functions
 void init()
 {
-    //fd = fopen("sampledisk32.raw", "rb+");
+    fd = fopen("sampledisk16.raw", "rb+");
 	//If you don't want to do the below, uncomment above statement
 	//Assumes sampledisk32.raw is in the same directory as code
-    fd = fopen(getenv("FAT_FS_PATH"), "rb+"); //get the env var FAT_FS_PATH
+    //fd = fopen(getenv("FAT_FS_PATH"), "rb+"); //get the env var FAT_FS_PATH
 	//Assuming it has been set though...
 
     fseek(fd, 0, SEEK_SET);
@@ -148,8 +152,14 @@ void init()
    	//if init has been read, start = 1
    	//otherwise start = 0
    	start = 1;
-   	cwdCluster = 2; //default to root directory
+   	rootCluster = 2; //default to root directory
     readFatTable(fd);
+    if(fatType == 16)
+    {
+    	firstRootDirSecNum = bpb.bpb_rsvdSecCnt + (bpb.bpb_numFATs * bpb.bpb_FATSz16);
+    	rootCluster = firstRootDirSecNum / bpb.bpb_secPerClus;
+    }
+    cwdCluster = rootCluster;
    	
    	/*printf("end init \n");
    	dirEnt *dir = (dirEnt*)malloc(numClusters * bytesPerClus);
@@ -227,6 +237,8 @@ char * makeUpper(char * path)
 //relative to the entire disk
 int firstClusterSector(int n)
 {
+	if(fatType == 16 && n == (firstRootDirSecNum / bpb.bpb_secPerClus))
+		return firstRootDirSecNum;
 	return ((n - 2) * bpb.bpb_secPerClus) + firstDataSector;
 }
 
@@ -248,7 +260,7 @@ void printDir(dirEnt dir)
 
    	printf("Attributes: %d \n", attr);
    	printf("NTRes: %d \n", dir.dir_NTRes);
-   	unsigned int * chain = clusterChain(dir.dir_fstClusLO);
+   	//unsigned int * chain = clusterChain(dir.dir_fstClusLO);
    	printf("First Cluster High: 0x%x \n", dir.dir_fstClusHI);
    	printf("First Cluster Low: 0x%x \n", dir.dir_fstClusLO);
    	printf("First Cluster Table Value: 0x%x \n", tableValue(dir.dir_fstClusLO));
@@ -270,7 +282,10 @@ unsigned int tableValue(int cluster)
 
 	//Above code is actually irrelevant due to how the FAT table was read into memory
 	//Code is there as those are the calculations specified by the FAT spec
-	return *(unsigned int*)&fatTable[cluster] & 0x0FFFFFFF;
+	if(fatType == 16)
+		return *(uint16_t*)&fatTable16[cluster];
+	else
+		return *(unsigned int*)&fatTable32[cluster] & 0x0FFFFFFF;
 }
 
 //Helper function
@@ -282,9 +297,15 @@ int clusterChainSize(int cluster, int size)
 	int value = tableValue(cluster);
 	size++;
 
-	if(value >= 0x0FFFFFF8)
+	if(fatType == 16)
 	{
-		return size;
+		if(value >= 0xFFF8)
+			return size;
+	}
+	else
+	{
+		if(value >= 0x0FFFFFF8)
+			return size;
 	}
 
 	return clusterChainSize(value, size);
@@ -315,15 +336,15 @@ void readFatTable(FILE * fd)
 {
 	if(fatType == 32)
 	{
-		fatTable = (uint32_t *)malloc(FATSz * bpb.bpb_bytesPerSec);
+		fatTable32 = (uint32_t *)malloc(FATSz * bpb.bpb_bytesPerSec);
 		fseek(fd, bpb.bpb_rsvdSecCnt * bpb.bpb_bytesPerSec, SEEK_SET);
-		fread(fatTable, sizeof(uint32_t), FATSz * bpb.bpb_bytesPerSec / sizeof(uint32_t), fd);
+		fread(fatTable32, sizeof(uint32_t), FATSz * bpb.bpb_bytesPerSec / sizeof(uint32_t), fd);
 	}
 	else if(fatType == 16)
 	{
-		fatTable = (uint32_t *)malloc(FATSz * bpb.bpb_bytesPerSec);
+		fatTable16 = (uint16_t *)malloc(FATSz * bpb.bpb_bytesPerSec);
 		fseek(fd, bpb.bpb_rsvdSecCnt * bpb.bpb_bytesPerSec, SEEK_SET);
-		fread(fatTable, sizeof(uint32_t), FATSz * bpb.bpb_bytesPerSec / sizeof(uint32_t), fd);
+		fread(fatTable16, sizeof(uint16_t), FATSz * bpb.bpb_bytesPerSec / sizeof(uint16_t), fd);
 	}
 	else
 		printf("there's a problem...\n");
@@ -357,7 +378,7 @@ int OS_cd(const char *path)
 
 	if(path[0] == '/' && path[1] == 0)
 	{
-		cwdCluster = 2;
+		cwdCluster = rootCluster;
 		return 1;
 	}
 
@@ -366,7 +387,7 @@ int OS_cd(const char *path)
 	//If path is an absolute path starting at the root directory
 	if(path[0] == '/')
 	{
-		cwdCluster = 2;
+		cwdCluster = rootCluster;
 		status = cdAbsolute(path);
 		if(status == -1)
 			cwdCluster = tempCWD;
@@ -384,7 +405,7 @@ int OS_cd(const char *path)
 
 	if(path[0] == '~')
 	{
-		cwdCluster = 2;
+		cwdCluster = rootCluster;
 		return 1;
 	}
 
@@ -435,7 +456,7 @@ int OS_cd(const char *path)
 
 			//In the event we go back to the root directory
 			if(cwdCluster == 0)
-				cwdCluster = 2;
+				cwdCluster = rootCluster;
 
 			return 1;
 		}
@@ -534,14 +555,13 @@ dirEnt * OS_readDir(const char *dirname)
 		if(status == -1)
 		{
 			cwdCluster = tempCWD;
-			return ls;
+			return NULL;
 		}
 	}
 
 	int inc, offset;
 	int count = 0;
    	dirEnt dir;
-   	//printf("cwdCluster %d \n", cwdCluster);
    	offset = firstClusterSector(cwdCluster) * bpb.bpb_bytesPerSec;
 
    	//Loop through each entry (32 bytes long)
@@ -570,6 +590,7 @@ dirEnt * OS_readDir(const char *dirname)
 	fread(&cwd, sizeof(dirEnt), 1, fd);
 
 	int length = clusterChainSize(cwd.dir_fstClusLO, 0);
+	//printf("length: %d \n", length);
 	if(length > 1)
 	{
 		inc = 0;
@@ -624,6 +645,7 @@ int OS_open(const char *path)
 	{
 		int i, status;
 		char * subPath = (char *)malloc(sizeof(char) * 8);
+		subPath[0] = '/';
 		int index = 0;
 
 		//Parse through path by finding the 'subpath' (.../*THIS_IS_THE_SUBPATH*/...)
@@ -631,7 +653,6 @@ int OS_open(const char *path)
 		{
 			if(path[i] == '/') //reached beginning/end of subpath
 			{
-				//printf("subPath: %s \n", subPath);
 				status = OS_cd(subPath);
 				index = 0;
 				//We are only looking for directories so we don't care about ext
@@ -649,7 +670,7 @@ int OS_open(const char *path)
 		}
 
 		path = subPath;
-		//printf("%s \n", path);
+		printf("%s \n", path);
 	}
 
 	dirEnt * dir = OS_readDir(".");
@@ -845,8 +866,11 @@ int OS_read(int fildes, void *buf, int nbyte, int offset)
 
 int findEmptyCluster()
 {
-
-	int size = FATSz * bpb.bpb_bytesPerSec / sizeof(uint32_t);
+	int size;
+	if(fatType == 16)
+		size = FATSz * bpb.bpb_bytesPerSec / sizeof(uint16_t);
+	else
+		size = FATSz * bpb.bpb_bytesPerSec / sizeof(uint32_t);
 	int i;
 
 	for(i = 0; i < size; i++)
@@ -868,7 +892,7 @@ char * goToEndOfFilePath(const char *path)
 	int index = 0;
 
 	if(path[0] == '/')
-		cwdCluster = 2;
+		cwdCluster = rootCluster;
 
 	//Parse through path by finding the 'subpath' (.../*THIS_IS_THE_SUBPATH*/...)
 	for(i = 0; i < strlen(path); i++)
@@ -1056,10 +1080,20 @@ int createFile(const char *path, int isDir)
 
 	//There is no space left... need to cluster chain
 	int nextEmptyCluster = findEmptyCluster();
-	fatTable[chain[length - 1]] = emptyCluster;
-	fatTable[nextEmptyCluster] = 0xFFFFFFF;
-   	fseek(fd, bpb.bpb_rsvdSecCnt * bpb.bpb_bytesPerSec, SEEK_SET);
-	fwrite(fatTable, sizeof(uint32_t), FATSz * bpb.bpb_bytesPerSec / sizeof(uint32_t), fd);
+	if(fatType == 16)
+	{
+		fatTable16[chain[length - 1]] = emptyCluster;
+		fatTable16[nextEmptyCluster] = 0xFFFF;
+	   	fseek(fd, bpb.bpb_rsvdSecCnt * bpb.bpb_bytesPerSec, SEEK_SET);
+		fwrite(fatTable16, sizeof(uint16_t), FATSz * bpb.bpb_bytesPerSec / sizeof(uint16_t), fd);
+	}
+	else
+	{
+		fatTable32[chain[length - 1]] = emptyCluster;
+		fatTable32[nextEmptyCluster] = 0xFFFFFFF;
+	   	fseek(fd, bpb.bpb_rsvdSecCnt * bpb.bpb_bytesPerSec, SEEK_SET);
+		fwrite(fatTable32, sizeof(uint32_t), FATSz * bpb.bpb_bytesPerSec / sizeof(uint32_t), fd);
+	}
 
 	cwdCluster = tempCWD;
 	return createFile(originalPath, isDir);
@@ -1092,9 +1126,19 @@ dirEnt writeDir(dirEnt dir, char* path, int cluster, int isDir)
 	dir.dir_fstClusLO = cluster;
 	dir.dir_fileSize = 0;
 
-	fatTable[cluster] = 0xFFFFFFF;
-	fseek(fd, bpb.bpb_rsvdSecCnt * bpb.bpb_bytesPerSec, SEEK_SET);
-	fwrite(fatTable, sizeof(uint32_t), FATSz * bpb.bpb_bytesPerSec / sizeof(uint32_t), fd);
+	if(fatType == 16)
+	{
+		fatTable16[cluster] = 0xFFFF;
+		fseek(fd, bpb.bpb_rsvdSecCnt * bpb.bpb_bytesPerSec, SEEK_SET);
+		fwrite(fatTable16, sizeof(uint16_t), FATSz * bpb.bpb_bytesPerSec / sizeof(uint16_t), fd);
+	}
+	else
+	{
+		fatTable32[cluster] = 0xFFFFFFF;
+		fseek(fd, bpb.bpb_rsvdSecCnt * bpb.bpb_bytesPerSec, SEEK_SET);
+		fwrite(fatTable32, sizeof(uint32_t), FATSz * bpb.bpb_bytesPerSec / sizeof(uint32_t), fd);
+
+	}
 
 	return dir;
 }
@@ -1192,7 +1236,7 @@ int removeFile(const char * path, int isDir)
 	int length = clusterChainSize(cwd.dir_fstClusLO, 0);
 	unsigned int * chain = clusterChain(cwd.dir_fstClusLO);
 	if(chain[0] == 0)
-		chain[0] = 2;
+		chain[0] = rootCluster;
 
 	for(i = 0; i < length; i++)
 	{
@@ -1216,22 +1260,44 @@ int removeFile(const char * path, int isDir)
 		   		if(isDir && dir.dir_attr != 0x10) //specified we were removing a dir and it is not a dir
 		   			return -2;
 
-		   		fileChainSize = clusterChainSize(dir.dir_fstClusLO, 0);
-		   		if(fileChainSize > 1)
+		   		if(fatType == 16)
 		   		{
-		   			fileChain = clusterChain(dir.dir_fstClusLO);
-		   			for(i = 0; i < fileChainSize; i++)
-		   			{
-		   				fatTable[fileChain[i]] = 0xFFFFFFF;
-		   				clusterOffset = firstClusterSector(fileChain[i]) * bpb.bpb_bytesPerSec;
-		   				fseek(fd, clusterOffset, SEEK_SET);
-		   				emptyDir = (dirEnt*)malloc(sizeof(dirEnt)); //empty dirEnt
-		   				fwrite(emptyDir, sizeof(dirEnt), 1, fd);
-		   			}
-		   		}
-		   		fatTable[dir.dir_fstClusLO] = 0x0;
-		   		fseek(fd, bpb.bpb_rsvdSecCnt * bpb.bpb_bytesPerSec, SEEK_SET);
-				fwrite(fatTable, sizeof(uint32_t), FATSz * bpb.bpb_bytesPerSec / sizeof(uint32_t), fd);
+			   		fileChainSize = clusterChainSize(dir.dir_fstClusLO, 0);
+			   		if(fileChainSize > 1)
+			   		{
+			   			fileChain = clusterChain(dir.dir_fstClusLO);
+			   			for(i = 0; i < fileChainSize; i++)
+			   			{
+			   				fatTable16[fileChain[i]] = 0xFFFF;
+			   				clusterOffset = firstClusterSector(fileChain[i]) * bpb.bpb_bytesPerSec;
+			   				fseek(fd, clusterOffset, SEEK_SET);
+			   				emptyDir = (dirEnt*)malloc(sizeof(dirEnt)); //empty dirEnt
+			   				fwrite(emptyDir, sizeof(dirEnt), 1, fd);
+			   			}
+			   		}
+			   		fatTable16[dir.dir_fstClusLO] = 0x0;
+			   		fseek(fd, bpb.bpb_rsvdSecCnt * bpb.bpb_bytesPerSec, SEEK_SET);
+					fwrite(fatTable16, sizeof(uint16_t), FATSz * bpb.bpb_bytesPerSec / sizeof(uint16_t), fd);
+				}
+				else
+				{
+			   		fileChainSize = clusterChainSize(dir.dir_fstClusLO, 0);
+			   		if(fileChainSize > 1)
+			   		{
+			   			fileChain = clusterChain(dir.dir_fstClusLO);
+			   			for(i = 0; i < fileChainSize; i++)
+			   			{
+			   				fatTable32[fileChain[i]] = 0xFFFFFFF;
+			   				clusterOffset = firstClusterSector(fileChain[i]) * bpb.bpb_bytesPerSec;
+			   				fseek(fd, clusterOffset, SEEK_SET);
+			   				emptyDir = (dirEnt*)malloc(sizeof(dirEnt)); //empty dirEnt
+			   				fwrite(emptyDir, sizeof(dirEnt), 1, fd);
+			   			}
+			   		}
+			   		fatTable32[dir.dir_fstClusLO] = 0x0;
+			   		fseek(fd, bpb.bpb_rsvdSecCnt * bpb.bpb_bytesPerSec, SEEK_SET);
+					fwrite(fatTable32, sizeof(uint32_t), FATSz * bpb.bpb_bytesPerSec / sizeof(uint32_t), fd);					
+				}
 
 				if(isDir) //if we are removing a directory, we must remove the dot and dotdot files
 				{
@@ -1284,16 +1350,32 @@ int OS_write(int fildes, const void *buf, int nbyte, int offset)
 
 	if(clusterLengthOfBuffer > length) //if we need to write beyond the dedicated cluster chain
 	{
-		while(length < clusterLengthOfBuffer)
+		if(fatType == 16)
 		{
-			emptyCluster = findEmptyCluster();
-			fatTable[chain[length - 1]] = emptyCluster;
-			fatTable[emptyCluster] = 0xFFFFFFF;
-			chain = clusterChain(dir.dir_fstClusLO);
-			length++;
+			while(length < clusterLengthOfBuffer)
+			{
+				emptyCluster = findEmptyCluster();
+				fatTable32[chain[length - 1]] = emptyCluster;
+				fatTable32[emptyCluster] = 0xFFFF;
+				chain = clusterChain(dir.dir_fstClusLO);
+				length++;
+			}
+	   		fseek(fd, bpb.bpb_rsvdSecCnt * bpb.bpb_bytesPerSec, SEEK_SET);
+			fwrite(fatTable16, sizeof(uint16_t), FATSz * bpb.bpb_bytesPerSec / sizeof(uint16_t), fd);
 		}
-   		fseek(fd, bpb.bpb_rsvdSecCnt * bpb.bpb_bytesPerSec, SEEK_SET);
-		fwrite(fatTable, sizeof(uint32_t), FATSz * bpb.bpb_bytesPerSec / sizeof(uint32_t), fd);
+		else
+		{
+			while(length < clusterLengthOfBuffer)
+			{
+				emptyCluster = findEmptyCluster();
+				fatTable32[chain[length - 1]] = emptyCluster;
+				fatTable32[emptyCluster] = 0xFFFFFFF;
+				chain = clusterChain(dir.dir_fstClusLO);
+				length++;
+			}
+	   		fseek(fd, bpb.bpb_rsvdSecCnt * bpb.bpb_bytesPerSec, SEEK_SET);
+			fwrite(fatTable32, sizeof(uint32_t), FATSz * bpb.bpb_bytesPerSec / sizeof(uint32_t), fd);			
+		}
 
 		//update the size of the file
 		dir.dir_fileSize = offset + nbyte;
