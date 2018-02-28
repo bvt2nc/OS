@@ -1,4 +1,4 @@
-#include "myfat.h"
+x#include "myfat.h"
 #include <stdio.h>
 #include <stdlib.h>
 #include <stdint.h>
@@ -355,11 +355,24 @@ int OS_cd(const char *path)
 
 	path = makeUpper((char *)path);
 
+	if(path[0] == '/' && path[1] == 0)
+	{
+		cwdCluster = 2;
+		return 1;
+	}
+
+	int tempCWD = cwdCluster;
+	int status;
 	//If path is an absolute path starting at the root directory
 	if(path[0] == '/')
 	{
 		cwdCluster = 2;
-		return cdAbsolute(path);
+		status = cdAbsolute(path);
+		if(status == -1)
+		{
+			cwdCluster = tempCWD;
+			return -1;
+		}
 	}
 
 	//If it is a long relative path leading to other directories
@@ -451,7 +464,7 @@ int cdAbsolute(const char * path)
 			//We are only looking for directories so we don't care about ext
 			subPath = (char *)malloc(sizeof(char) * 8);
 
-			if(status == -1)
+			if(status == -1 && i != 0)
 			{
 				return -1;
 			}
@@ -507,17 +520,22 @@ dirEnt * OS_readDir(const char *dirname)
 		init();
 
 	dirname = makeUpper((char *)dirname);
+	dirEnt* ls = (dirEnt*)malloc(sizeof(dirEnt) * 256);
 
 	int tempCWD = 0;
+	int status = 0;
 	//If absolute path, save the cwdcluster to be loaded back again at end of function and cd
 	if(dirname[0] != '.')
 	{
 		tempCWD = cwdCluster;
 		//printf("tempCWD: %d \n", tempCWD);
-		OS_cd(dirname);
+		status = OS_cd(dirname);
+		if(status == -1)
+		{
+			cwdCluster = tempCWD;
+			return ls;
+		}
 	}
-
-	dirEnt* ls = (dirEnt*)malloc(sizeof(dirEnt) * 128);
 
 	int inc, offset;
 	int count = 0;
