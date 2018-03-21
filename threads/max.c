@@ -11,12 +11,13 @@ pthread_barrier_t barrier;
 
 void* getMax(void * arg);
 void readData();
+int power(int base, int exp);
 
 typedef struct
 {
 	int tid;
-	int pos1;
-	int pos2;
+	int active; //logical indicating whether thread should be active
+	int delta; 
 	int rval;
 } thread_arg;
 
@@ -31,28 +32,49 @@ int main()
 	pthread_attr_init(&attr);
 	pthread_barrier_init(&barrier, NULL, NUM_THREADS + 1);
 	thread_arg arg[NUM_THREADS];
+	int currentN = N;
+	int round = 1;
 
-	//printf("Creating threads...\n");
-	int i;
-	for(i = 0; i < NUM_THREADS; i++)
+	while(currentN >= 1)
 	{
-		arg[i].tid = i * 2;
-		pthread_create(&tid[i], &attr, getMax, &arg[i]);
+		//printf("Creating threads...\n");
+		int i;
+		for(i = 0; i < NUM_THREADS; i++)
+		{
+			arg[i].tid = i * power(2, round);
+			arg[i].delta = power(2, round - 1);
+			//printf("%d %d %d \n", i, power(2, round), i * power(2, round));
+			//printf("%d: %d \n", i, arg[i].tid);
+			if(i < currentN)
+				arg[i].active = 1;
+			else
+				arg[i].active = 0;
+			pthread_create(&tid[i], &attr, getMax, &arg[i]);
+		}
+		//printf("==========tids=======\n");
+		pthread_barrier_wait(&barrier);
+		//printf("Joining... \n");
+		for(i = 0; i < NUM_THREADS; i++)
+		{
+			pthread_join(tid[i], NULL);
+			if(arg[i].active)
+			{
+				//fprintf(stdout, "%d %d \n",data[arg[i].tid], data[arg[i].tid + arg[i].delta]);
+				//fprintf(stdout, "%d \n", arg[i].rval);
+			}
+		}
+		currentN = currentN / 2;
+		round++;
+		//fprintf(stdout, "==========================================================\n");
 	}
-	pthread_barrier_wait(&barrier);
-	//printf("Joining... \n");
-	for(i = 0; i < NUM_THREADS; i++)
-	{
-		pthread_join(tid[i], NULL);
-		fprintf(stdout, "%d \n", arg[i].rval);
-	}
+	fprintf(stdout, "Max: %d \n", arg[0].rval);
 
 }
 
 /*
 Helper method for pthreads.
 
-Returns the maximum of the elements at position tid and (tid + 1) passed in arg.
+Returns the maximum of the elements at position tid and (tid + delta) passed in arg.
 Arg is casted as a thread_arg to extract tid.
 The max is passed back to arg in rval
 */
@@ -60,13 +82,25 @@ void* getMax(void *arg)
 {
 	//printf("in helper...\n");
 	thread_arg *s = (thread_arg*)arg;
-	int tid = s -> tid;
-	//printf("putting min back in rval...\n");
-	int max = data[tid + 1];
-	if(data[tid] > data[tid + 1])
-		max =data[tid];
-	((thread_arg*)arg) -> rval = max;
-	//printf("finished...\n");
+	int pos1 = s -> tid;
+	int pos2 = pos1 + (s -> delta);
+	int active = s -> active;
+
+	if(active)
+	{
+		//printf("putting min back in rval...\n");
+		int max = data[pos1];
+		int temp;
+		if(data[pos2] > data[pos1])
+		{
+			max = data[pos2];
+			temp = data[pos1];
+			data[pos1] = data[pos2];
+			data[pos2] = temp;
+		}
+		((thread_arg*)arg) -> rval = max;
+		//printf("finished...\n");
+	}
 
 	pthread_barrier_wait(&barrier);
 	return NULL;
@@ -97,4 +131,16 @@ void readData()
 	data = (int *) realloc(data, N * sizeof(int));
 	//for(x = 0; x < N; x++)
 	//	fprintf(stdout, "%d \n", data[x]);
+}
+
+/*
+Function that handles exponentiation
+*/
+int power(int base, int exp)
+{
+	int i;
+	int rval = 1;
+	for(i = 0; i < exp; i++)
+		rval *= base;
+	return rval;
 }
