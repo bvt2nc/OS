@@ -9,7 +9,7 @@ size_t N;
 int NUM_THREADS;
 pthread_barrier_t barrier;
 
-void* getMin(void * arg);
+void* getMax(void * arg);
 void readData();
 
 typedef struct
@@ -32,15 +32,15 @@ int main()
 	pthread_barrier_init(&barrier, NULL, NUM_THREADS + 1);
 	thread_arg arg[NUM_THREADS];
 
-	printf("Creating threads...\n");
+	//printf("Creating threads...\n");
 	int i;
 	for(i = 0; i < NUM_THREADS; i++)
 	{
-		arg -> tid = i;
-		pthread_create(&tid[i], &attr, getMin, &arg[i]);
+		arg[i].tid = i * 2;
+		pthread_create(&tid[i], &attr, getMax, &arg[i]);
 	}
 	pthread_barrier_wait(&barrier);
-	printf("Joining... \n");
+	//printf("Joining... \n");
 	for(i = 0; i < NUM_THREADS; i++)
 	{
 		pthread_join(tid[i], NULL);
@@ -52,21 +52,21 @@ int main()
 /*
 Helper method for pthreads.
 
-Returns the minimum of the elements at pos1 and pos2 passed in arg.
-Arg is casted as a thread_arg to extract pos1 and pos2.
-The minimum is passed back to arg in rval
+Returns the maximum of the elements at position tid and (tid + 1) passed in arg.
+Arg is casted as a thread_arg to extract tid.
+The max is passed back to arg in rval
 */
-void* getMin(void *arg)
+void* getMax(void *arg)
 {
-	printf("in helper...\n");
+	//printf("in helper...\n");
 	thread_arg *s = (thread_arg*)arg;
 	int tid = s -> tid;
-	printf("putting min back in rval...\n");
-	int min = data[tid + 1];
-	if(data[tid] < data[tid + 1])
-		min =data[tid];
-	((thread_arg*)arg) -> rval = min;
-	printf("finished...\n");
+	//printf("putting min back in rval...\n");
+	int max = data[tid + 1];
+	if(data[tid] > data[tid + 1])
+		max =data[tid];
+	((thread_arg*)arg) -> rval = max;
+	//printf("finished...\n");
 
 	pthread_barrier_wait(&barrier);
 	return NULL;
