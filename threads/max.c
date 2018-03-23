@@ -150,16 +150,21 @@ void readData()
 	data = (long *)malloc(sizeof(long) * MAX_N);
 
 	fseek(stdin, 0, SEEK_SET);
-	while((fgets(line, sizeof(line), stdin) != NULL) && (line[0] != '\n'))
+	while((fgets(line, sizeof(char) * 509, stdin) != NULL) && (line[0] != '\n'))
 	{
+		//printf("N: %d \n", (int)N);
+		//printf("%s \n", line);
 		l = atol(line);
+		//printf("l: %ld \n", l);
 		data[N] = l;
 		N++;
+		//printf("data[N]: %ld \n", data[(int)N - 1]);
 	}
 
 	data = (long *) realloc(data, N * sizeof(long));
-	//for(x = 0; x < N; x++)
-	//	fprintf(stdout, "%d \n", data[x]);
+	/*int x;
+	for(x = 0; x < N; x++)
+		fprintf(stdout, "%ld \n", data[x]);*/
 }
 
 /*

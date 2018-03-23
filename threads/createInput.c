@@ -5,7 +5,7 @@ int main()
 {
 	int N = 8192;
 	int i;
-	int max = 29344;
+	int max = 999999993	;
 	int data[N];
 
 	for(i = 0; i < N; i++)
