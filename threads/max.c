@@ -35,6 +35,7 @@ void barrier_init(barrier_s *barrier, int init);
 void barrier_wait(barrier_s *barrier);
 
 barrier_s *barrier;
+barrier_s *finishBarrier;
 
 int main()
 {
@@ -48,33 +49,36 @@ int main()
 	pthread_attr_init(&attr);
 	//pthread_barrier_init(&barrier, NULL, NUM_THREADS + 1);
 	barrier = (barrier_s *)malloc(sizeof(barrier_s));
-	barrier_init(barrier, NUM_THREADS + 1);
+	finishBarrier = (barrier_s *)malloc(sizeof(barrier_s));
+	barrier_init(barrier, NUM_THREADS);
+	barrier_init(finishBarrier, NUM_THREADS + 1);
 	thread_arg arg[NUM_THREADS];
-	int currentN = N;
-	int round = 1;
+	//int currentN = N;
+	//int round = 1;
 
-	while(currentN >= 1)
-	{
+	//while(currentN >= 1)
+	//{
 		//printf("Round: %d \n", round);
 		//printf("Creating threads...\n");
 		int i;
 		for(i = 0; i < NUM_THREADS; i++)
 		{
-			arg[i].tid = i * power(2, round);
-			arg[i].delta = power(2, round - 1);
+			arg[i].tid = i;
+			//arg[i].tid = i * power(2, round);
+			//arg[i].delta = power(2, round - 1);
 			/*printf("%d %d %d \n", i, power(2, round), i * power(2, round));
 			printf("%d: %d \n", i, arg[i].tid);
 			printf("currentN: %d\n", currentN);
 			printf("==============\n");*/
-			if(i < (currentN / 2))	
-				arg[i].active = 1;
-			else
-				arg[i].active = 0;
+			//if(i < (currentN / 2))	
+			//	arg[i].active = 1;
+			//else
+			//	arg[i].active = 0;
 			pthread_create(&tid[i], &attr, getMax, &arg[i]);
 		}
 		//printf("==========tids=======\n");
 		//pthread_barrier_wait(&barrier);
-		barrier_wait(barrier);
+		barrier_wait(finishBarrier);
 		//printf("Joining... \n");
 		for(i = 0; i < NUM_THREADS; i++)
 		{
@@ -85,11 +89,11 @@ int main()
 				//fprintf(stdout, "%d \n", arg[i].rval);
 			}
 		}
-		currentN = currentN / 2;
-		round++;
+		//currentN = currentN / 2;
+		//round++;
 		//fprintf(stdout, "==========================================================\n");
-	}
-	fprintf(stdout, "%d \n", arg[0].rval);
+	//}
+	fprintf(stdout, "max: %d \n", arg[0].rval);
 
 }
 
@@ -104,11 +108,19 @@ void* getMax(void *arg)
 {
 	//printf("in helper...\n");
 	thread_arg *s = (thread_arg*)arg;
-	int pos1 = s -> tid;
-	int pos2 = pos1 + (s -> delta);
-	int active = s -> active;
+	int currentN = N;
+	int round = 1;
+	int tid = s -> tid;
 
-	if(active)
+	while(currentN >= 1)
+	{
+
+	int pos1 = tid * power(2, round);
+	int pos2 = pos1 + power(2, round - 1);
+	//int active = s -> active;
+
+	//if(active)
+	if(pos2 < N)
 	{
 		//printf("active\n");
 		long max = data[pos1];
@@ -130,8 +142,16 @@ void* getMax(void *arg)
 		//printf("finished...\n");
 	}
 
-	//pthread_barrier_wait(&barrier);
+	printf("before tid: %d, round: %d, value: %d \n", tid, round, barrier -> value);
 	barrier_wait(barrier);
+	printf("after tid: %d, round: %d, value: %d \n", tid, round, barrier -> value);
+	currentN = currentN / 2;
+	round++;
+
+	}
+
+	//pthread_barrier_wait(&barrier);
+	barrier_wait(finishBarrier);
 	return NULL;
 }
 
@@ -219,4 +239,5 @@ void barrier_wait(barrier_s *barrier)
 		barrier -> value = barrier -> init;
 		sem_post(&(barrier -> mutex));
 	}
+	printf("out: %d \n", barrier->value);
 }
