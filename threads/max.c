@@ -1,14 +1,53 @@
+/*
+Binary Reduction using pthreads with self-made barrier using semaphores
+
+CS4414 Operating Systems
+Spring 2018
+
+Benjamin Trans (bvt2nc)
+
+max.c  - Binary reduction that takens in a list of numbers from stdin and outputs the max 
+		 to stdout
+stdin  - Each number should be in its own line. File ends with a new line.
+stdout - The maximum value read in will be outputted and only the maximum value
+
+Code written solely by Benjamin Trans. Acknowledgements to Professor Andrew Grimshaw 
+for barrier with semaphore implementation that was directly used from the example
+shown in class.
+
+The following code implements a binary reduction using N / 2 threads reused throughout
+each round where N is an even number of numbers (casted as floats) read in from stdin.
+Synchronization was accomplished with a self-made barrier using the POSIX counting semaphores
+acting as a binary semaphore.
+
+We refer the reader to the assignment writeup for all of the details.
+
+	COMPILE:		make
+	MAKEFILE:		Makefile
+
+	MODIFICATIONS:
+			March 20 -  Start assignment by making Makefile and basic helloworld
+			March 21 -  Developed input and output functions to read stdin and output to 
+						stdout. Developed Basic 1 round implementation of maximum binary
+						reduction using pthreads.
+			March 21 -  Full implemenation using built-in barrier. Threads are not resused
+			March 22 - 	Implement barrier with POSIX semaphores. Create simple program to 
+						generate input file
+			March 23 - 	Fix reading in the numbers, changing reading in ints to floats.
+						Fix the max number limit read in to be sizeof(char) * 509
+			March 25 - 	Reuse threads and document code.
+*/
+
 #include <stdio.h>
 #include <pthread.h>
 #include <stdlib.h>
 #include <string.h>
 #include <semaphore.h>
 
-int MAX_N = 60000; //2^(16);
+int MAX_N = 60000;
 long *data;
 size_t N;
 int NUM_THREADS;
-//pthread_barrier_t barrier;
 
 void* getMax(void * arg);
 void readData();
@@ -17,11 +56,14 @@ int power(int base, int exp);
 typedef struct
 {
 	int tid;
-	int active; //logical indicating whether thread should be active
-	int delta; 
+	//int active; //logical indicating whether thread should be active
+	//int delta; 
 	int rval;
 } thread_arg;
 
+/*
+Taken from Grimshaw's lecture
+*/
 typedef struct 
 {
 	int value;
@@ -41,115 +83,108 @@ int main()
 {
 
 	readData();
-	printf("N: %d \n", (int)N);	
+	//printf("N: %d \n", (int)N);	
 	NUM_THREADS = N / 2;
 
+	//initialize threads and barriers
 	pthread_t tid[NUM_THREADS];
 	pthread_attr_t attr;
 	pthread_attr_init(&attr);
-	//pthread_barrier_init(&barrier, NULL, NUM_THREADS + 1);
+	//barrier to synchronize each round that each thread processes
 	barrier = (barrier_s *)malloc(sizeof(barrier_s));
+	//barrier to synchronize when each thread is finished ALL rounds
 	finishBarrier = (barrier_s *)malloc(sizeof(barrier_s));
 	barrier_init(barrier, NUM_THREADS);
 	barrier_init(finishBarrier, NUM_THREADS + 1);
 	thread_arg arg[NUM_THREADS];
-	//int currentN = N;
-	//int round = 1;
 
-	//while(currentN >= 1)
-	//{
-		//printf("Round: %d \n", round);
-		//printf("Creating threads...\n");
-		int i;
-		for(i = 0; i < NUM_THREADS; i++)
-		{
-			arg[i].tid = i;
-			//arg[i].tid = i * power(2, round);
-			//arg[i].delta = power(2, round - 1);
-			/*printf("%d %d %d \n", i, power(2, round), i * power(2, round));
-			printf("%d: %d \n", i, arg[i].tid);
-			printf("currentN: %d\n", currentN);
-			printf("==============\n");*/
-			//if(i < (currentN / 2))	
-			//	arg[i].active = 1;
-			//else
-			//	arg[i].active = 0;
-			pthread_create(&tid[i], &attr, getMax, &arg[i]);
-		}
-		//printf("==========tids=======\n");
-		//pthread_barrier_wait(&barrier);
-		barrier_wait(finishBarrier);
-		//printf("Joining... \n");
-		for(i = 0; i < NUM_THREADS; i++)
-		{
-			pthread_join(tid[i], NULL);
-			if(arg[i].active)
-			{
-				//fprintf(stdout, "%d %d \n",data[arg[i].tid], data[arg[i].tid + arg[i].delta]);
-				//fprintf(stdout, "%d \n", arg[i].rval);
-			}
-		}
-		//currentN = currentN / 2;
-		//round++;
-		//fprintf(stdout, "==========================================================\n");
-	//}
-	fprintf(stdout, "max: %d \n", arg[0].rval);
+	//printf("Creating threads...\n");
+	int i;
+	for(i = 0; i < NUM_THREADS; i++)
+	{
+		//Set parameter
+		arg[i].tid = i;
+		//Create threads
+		pthread_create(&tid[i], &attr, getMax, &arg[i]);
+	}
+
+	//Wait for all threads to finish ALL rounds of binary reduction 
+	barrier_wait(finishBarrier);
+	//printf("Joining... \n");
+	for(i = 0; i < NUM_THREADS; i++)
+	{
+		//Join all threads
+		pthread_join(tid[i], NULL);
+	}
+	//Print the max found to stdout
+	fprintf(stdout, "%d \n", arg[0].rval);
 
 }
 
 /*
 Helper method for pthreads.
 
-Returns the maximum of the elements at position tid and (tid + delta) passed in arg.
+Returns the maximum of the elements at position pos1 and pos2 that is calculated
+based on the tid and round.
 Arg is casted as a thread_arg to extract tid.
 The max is passed back to arg in rval
 */
 void* getMax(void *arg)
 {
 	//printf("in helper...\n");
+	//Extract arguments and initialize for the rounds
 	thread_arg *s = (thread_arg*)arg;
 	int currentN = N;
 	int round = 1;
 	int tid = s -> tid;
 
+	//Repeat until we are only left with one number to compare (the max)
 	while(currentN >= 1)
 	{
 
-	int pos1 = tid * power(2, round);
-	int pos2 = pos1 + power(2, round - 1);
-	//int active = s -> active;
+		//Calculate pos1 and pos2
+		int pos1 = tid * power(2, round);
+		int pos2 = pos1 + power(2, round - 1);
 
-	//if(active)
-	if(pos2 < N)
-	{
-		//printf("active\n");
-		long max = data[pos1];
-		//printf("temp max\n");
-		long temp;
-		/*printf("pos1: %d \n", pos1);
-		printf("pos2: %d \n", pos2);
-		printf("N: %d \n", (int)N);*/
-		if(data[pos2] > data[pos1])
+		//If thread not out of scope, find the max
+		if(pos2 < N)
 		{
-			//printf("in if...\n");
-			max = data[pos2];
-			temp = data[pos1];
-			data[pos1] = data[pos2];
-			data[pos2] = temp;
+			//printf("active\n");
+			long max = data[pos1];
+			//printf("temp max\n");
+			long temp;
+			/*printf("pos1: %d \n", pos1);
+			printf("pos2: %d \n", pos2);
+			printf("N: %d \n", (int)N);*/
+
+			//Set new max and swap max to always be in pos1
+			if(data[pos2] > data[pos1])
+			{
+				//printf("in if...\n");
+				max = data[pos2];
+				temp = data[pos1];
+				data[pos1] = data[pos2];
+				data[pos2] = temp;
+			}
+
+			//Set the thread's rval
+			//printf("putting min back in rval...\n");
+			((thread_arg*)arg) -> rval = max;
+			//printf("finished...\n");
 		}
-		//printf("putting min back in rval...\n");
-		((thread_arg*)arg) -> rval = max;
-		//printf("finished...\n");
+
+		//Wait until all other threads and finished with their round
+		//printf("before tid: %d, round: %d, value: %d \n", tid, round, barrier -> value);
+		barrier_wait(barrier);
+		//printf("after tid: %d, round: %d, value: %d \n", tid, round, barrier -> value);
+
+		//Increment round and cut the number of data elements we are pairing in half
+		currentN = currentN / 2;
+		round++;
+
 	}
 
-	printf("before tid: %d, round: %d, value: %d \n", tid, round, barrier -> value);
-	barrier_wait(barrier);
-	printf("after tid: %d, round: %d, value: %d \n", tid, round, barrier -> value);
-	currentN = currentN / 2;
-	round++;
-
-	}
-
+	//Wait until ALL threads completely finished
 	//pthread_barrier_wait(&barrier);
 	barrier_wait(finishBarrier);
 	return NULL;
@@ -169,18 +204,20 @@ void readData()
 	N = 0;
 	data = (long *)malloc(sizeof(long) * MAX_N);
 
+	//Read each line
 	fseek(stdin, 0, SEEK_SET);
 	while((fgets(line, sizeof(char) * 509, stdin) != NULL) && (line[0] != '\n'))
 	{
 		//printf("N: %d \n", (int)N);
 		//printf("%s \n", line);
-		l = atol(line);
+		l = atol(line); //Cast string to long
 		//printf("l: %ld \n", l);
 		data[N] = l;
 		N++;
 		//printf("data[N]: %ld \n", data[(int)N - 1]);
 	}
 
+	//Resize data array to exact size of N elements
 	data = (long *) realloc(data, N * sizeof(long));
 	/*int x;
 	for(x = 0; x < N; x++)
@@ -239,5 +276,5 @@ void barrier_wait(barrier_s *barrier)
 		barrier -> value = barrier -> init;
 		sem_post(&(barrier -> mutex));
 	}
-	printf("out: %d \n", barrier->value);
+	//printf("out: %d \n", barrier->value);
 }
