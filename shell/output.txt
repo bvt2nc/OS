@@ -1,0 +1,11 @@
+>execCMDIndex: 0 
+total 96
+-rwxr-xr-x  1 Ben  staff  13808 Apr 15 17:00 a.out
+-rw-r--r--  1 Ben  staff      0 Apr 15 17:03 cat
+-rw-r--r--  1 Ben  staff      0 Apr 15 17:03 foo.txt
+-rw-r--r--  1 Ben  staff    127 Apr 15 12:12 foowc
+-rw-r--r--  1 Ben  staff     19 Apr 15 17:00 input.sh
+-rw-r--r--  1 Ben  staff     19 Apr 15 16:57 input.txt
+-rw-r--r--@ 1 Ben  staff   7632 Apr 15 16:58 master.c
+-rw-r--r--  1 Ben  staff    431 Apr 15 16:04 output.txt
+-rw-r--r--  1 Ben  staff   4836 Apr 15 17:01 shell.c
