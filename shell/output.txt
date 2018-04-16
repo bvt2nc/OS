@@ -1,4 +1,3 @@
->execCMDIndex: 0 
 total 96
 -rwxr-xr-x  1 Ben  staff  13808 Apr 15 17:00 a.out
 -rw-r--r--  1 Ben  staff      0 Apr 15 17:03 cat
