@@ -41,7 +41,9 @@ We refer the reader to the assignment writeup for all of the details.
 #include <ctype.h>
 #include <fcntl.h>
 #include <signal.h>
+#include <ctype.h>
 
+int checkLine(char *buf);
 int getcmd(char *buf, int size);
 int executetoken(char *buf);
 int parseline(char *buf);
@@ -69,6 +71,15 @@ int main()
 		//For testing purposes... should remember to comment out before submission
 		//if(buf[0] == '#')
 		//	continue;
+
+		//Check if line only contains valid characters
+		if(!checkLine(buf))
+		{
+			printf("Line does not contain valid characters\n");
+			printf(">");
+			fflush(stdout);
+			continue;
+		}
 
 		//If line reads "exit" stop
 		if(buf[0] == 'e' && buf[1] == 'x' && buf[2] == 'i' && buf[3] == 't' && (buf[4] == 0 || isspace(buf[4])))
@@ -107,6 +118,34 @@ int getcmd(char *buf, int size)
 	{
 		printf("Error, line is greater than 100 characters\n");
 		return 0;
+	}
+	return 1;
+}
+
+/*
+Check each character in arg buf
+
+valid characters are A-Z, a-z, 0-9, -./_<>|
+
+return - 0 if there is an illegal character, 1 if the line is legal
+*/
+int checkLine(char *buf)
+{
+	int i;
+	char c;
+	for(i = 0; i < 101; i++)
+	{
+		c = buf[i];
+		if(c == 0 || c == '\n')
+			break;
+		if(isalpha(c) || isblank(c) || isdigit(c) || (c == '/') || (c == '.') || (c == '-') || (c == '_') || (c == '>') || (c == '<') || (c == '|'))
+		//|| (strtok("|", &c) != NULL))
+			continue;
+		else
+		{
+			printf("%c is illegal \n", c);
+			return 0;
+		}
 	}
 	return 1;
 }
