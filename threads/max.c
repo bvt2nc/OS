@@ -83,7 +83,6 @@ int main()
 {
 
 	readData();
-	//printf("N: %d \n", (int)N);	
 	NUM_THREADS = N / 2;
 
 	//initialize threads and barriers
@@ -141,6 +140,7 @@ void* getMax(void *arg)
 	//Repeat until we are only left with one number to compare (the max)
 	while(currentN >= 1)
 	{
+		//printf("round: %d \n", round);
 
 		//Calculate pos1 and pos2
 		int pos1 = tid * power(2, round);
@@ -246,7 +246,7 @@ void barrier_init(barrier_s *barrier, int init)
 	barrier -> init = init;
 	sem_init(&(barrier -> mutex), 0, 1);
 	sem_init(&(barrier -> waitq), 0, 0);
-	sem_init(&(barrier -> throttle), 0, 1);	
+	sem_init(&(barrier -> throttle), 0, 0);	
 }
 
 /*
@@ -276,5 +276,4 @@ void barrier_wait(barrier_s *barrier)
 		barrier -> value = barrier -> init;
 		sem_post(&(barrier -> mutex));
 	}
-	//printf("out: %d \n", barrier->value);
 }
