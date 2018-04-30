@@ -13,15 +13,17 @@ void sendMessage(int socket, void * message, int len);
 
 int binary = 0;
 
-int main(void)
+int main(int argc, char* argv[])
 {
 	struct sockaddr_in sa;
 	char clientMsg[1024], command[5];
 	char clientParse[1024];
-	char message[1024] = "220 connected\r\n";
+	char pathname[20];
+	char message[1024];
 	ssize_t recsize, sendsize;
 	socklen_t fromlen;
 	int i;
+	int quitLogical = 0;
 	int SocketFD = socket(AF_INET, SOCK_STREAM, IPPROTO_TCP);
 	int transferSocket;
 	if (SocketFD == -1) 
@@ -33,7 +35,7 @@ int main(void)
 	memset(&sa, 0, sizeof sa);
 
 	sa.sin_family = AF_INET;
-	sa.sin_port = htons(1111);
+	sa.sin_port = htons((u_short)atoi(argv[1]));
 	sa.sin_addr.s_addr = inet_addr("127.0.0.1");
 
 	if (bind(SocketFD, (struct sockaddr *)&sa, sizeof(sa)) == -1) 
@@ -63,7 +65,10 @@ int main(void)
 
 		printf("connectfd: %d\n", ConnectFD);
 
-		sendsize = send(ConnectFD, (void*)message, sizeof(message), 0);
+		memset(&message[0], 0, sizeof(message));
+		strcpy(&message[0], "220 Service ready for new user.\r\n");
+		printf("login message: %s", message);
+		sendsize = send(ConnectFD, (void*)&message[0], sizeof(message), 0);
 		if(sendsize < 0)
 		{
 			printf("Could not send 220\n");
@@ -80,14 +85,12 @@ int main(void)
 			printf("waiting....\n");
 			recsize = recv(ConnectFD, &clientMsg[0], 1024, 0);
 			memset(&clientParse[0], 0, sizeof(clientParse));
-			//memset(&message[0], 0, sizeof(message));
 			
 			for(i = 0; i < recsize; i++)
 				clientParse[i] = clientMsg[i];
 			clientParse[recsize] = '\0';
 
 			printf("recsize: %d\n", (int)recsize);
-			//printf("clientParse: %s\n", clientParse);
 			printf("===================clientParse=================\n");
 			for(i = 0; i < 1024; i++)
 				printf("%c", clientParse[i]);
@@ -96,9 +99,10 @@ int main(void)
 			char *buffer = strtok(clientParse, "\n\r");
 			while(buffer != NULL)
 			{
-				//memset(&message[0], 0, 1024);
-				sscanf(buffer, "%s", command);
-				//printf("recv success \n");
+				memset(&command[0], 0, sizeof(command));
+				memset(&pathname[0], 0, sizeof(pathname));
+				memset(&message[0], 0, sizeof(message));
+				sscanf(buffer, "%s %s", command, pathname);
 				if (recsize < 0) 
 				{
 					fprintf(stderr, "%s\n", strerror(errno));
@@ -110,6 +114,7 @@ int main(void)
 				printf("===============================================\n");
 				//printf("buffer: %s\n", buffer);
 				printf("command: %s\n", command);
+				printf("pathname: %s\n", pathname);
 
 				/*for(i = 0; i < 5; i++)
 				{
@@ -121,32 +126,44 @@ int main(void)
 					strcpy(message, "125 Transferring...\n");
 					//send(ConnectFD, message, 1024, 0);
 					sendMessage(ConnectFD, message, 1024);
+					memset(&message[0], 0, sizeof(message));
 
-					system("ls -l > temp.txt");
-					i = 0;
-					FILE *f = fopen("temp.txt", "r");
-					while(!feof(f))
-						message[i++] = fgetc(f);
-					message[i-1] = '\r';
-					printf("list: %s \n", message);
-					if(fork() == 0)
-					{
-						printf("transferSocket: %d\n", transferSocket);
-						send(transferSocket, message, 1024, 0);
-						binary = 1;
-						//sendMessage(transferSocket, message, 1024);
-						binary = 0;
-						exit(1);
-					}
+					char cmd[100];
+					if(pathname[0] == 0)
+						strcpy(cmd, "ls -l > temp.txt 2>error");
 					else
 					{
-						wait(NULL);
-						close(transferSocket);
-						strcpy(message, "226 File Transfer Complete\r\n");
-						printf("message: %s\n", message);
-						//send(ConnectFD, message, 1024, 0);
-						sendMessage(ConnectFD, message, 1024);
+						strcpy(cmd, "ls -l ");
+						strcat(cmd, pathname);
+						strcat(cmd, "> temp.txt 2>error");
 					}
+					printf("cmd: %s\n", cmd);
+					FILE *f;
+					int status = system(cmd);
+					if(status == -1)
+						printf("system call failed\n");
+					f = fopen("temp.txt", "r");
+					i = 0;
+					int c;
+					while(!feof(f)){
+						c = (int)fgetc(f);
+						if(c == -1)
+							break;
+						message[i++] = (char)c;
+					}
+					fclose(f);
+					f = fopen("error", "r");
+					while(!feof(f))
+						message[i++] = fgetc(f);
+					fclose(f);
+					message[i - 1] = '\r';
+					//message[i] = '\n';
+					message[i] = '\0';
+					printf("list: %s", message);
+					send(transferSocket, message, strlen(message), 0);
+					memset(&message[0], 0, sizeof(message));
+					close(transferSocket);
+					strcpy(message, "226 File Transfer Complete\r\n");
 						
 				}
 				else if(!strcmp(command, "PWD"))
@@ -154,39 +171,39 @@ int main(void)
 					//printf("in PWD\n");
 					system("pwd>temp.txt");
 					FILE *f = fopen("temp.txt", "r");
-					buffer[0] = '2';
-					buffer[1] = '5';
-					buffer[2] = '7';
-					buffer[3] = ' ';
+					message[0] = '2';
+					message[1] = '5';
+					message[2] = '7';
+					message[3] = ' ';
 					i = 4;
 					while(!feof(f))
 					{
-						buffer[i++] = fgetc(f);
+						message[i++] = fgetc(f);
 					}
-					buffer[i - 1] = '\r';
-					buffer[i] = '\n';
+					message[i - 1] = '\r';
+					message[i] = '\n';
 					fclose(f);
-					printf("pwd: %s", buffer);
+					printf("pwd: %s", message);
 					//send(ConnectFD, buffer, 1024, 0);
-					sendMessage(ConnectFD, buffer, 1024);
+					//sendMessage(ConnectFD, buffer, 1024);
 				}
 				else if(!strcmp(command, "USER"))
 				{
-					strcpy(message, "220 Recieved\r\n"); //placeholder
-					send(ConnectFD, message, sizeof(message), 0);
+					strcpy(message, "230 User logged in, proceed.\r\n"); //placeholder
+					//send(ConnectFD, message, sizeof(message), 0);
 					//sendMessage(ConnectFD, message, sizeof(message));
 				}
 				else if(!strcmp(command, "SYST"))
 				{
 					strcpy(message, "502 Command not implemented.\r\n");
 					//send(ConnectFD, message, sizeof(message), 0);
-					sendMessage(ConnectFD, message, sizeof(message));
+					//sendMessage(ConnectFD, message, sizeof(message));
 				}
 				else if(!strcmp(command, "FEAT"))
 				{
 					strcpy(message, "502 Command not implemented.\r\n");
 					//send(ConnectFD, message, sizeof(message), 0);
-					sendMessage(ConnectFD, message, sizeof(message));
+					//sendMessage(ConnectFD, message, sizeof(message));
 				}
 				else if(!strcmp(command, "PORT"))
 				{
@@ -214,39 +231,134 @@ int main(void)
 						printf("PORT failed\n");
 						strcpy(message, "425 Can't open data connection.\r\n");
 						//send(ConnectFD, message, sizeof(message), 0);
-						sendMessage(ConnectFD, message, sizeof(message));
+						//sendMessage(ConnectFD, message, sizeof(message));
 					}
 					else
 					{
 						printf("PORT success\n");
-						memset(&message[0], 0, 1024);
 						strcpy(message, "200 Command okay.\r\n");
 						//send(ConnectFD, message, sizeof(message), 0);
-						sendMessage(ConnectFD, message, sizeof(message));
+						//sendMessage(ConnectFD, message, sizeof(message));
 					}
 				}
 				else if(!strcmp(command, "TYPE"))
 				{
-					printf("buffer: %s\n", buffer);
 					if(buffer[5] == 'I')
-						strcpy(message, "200 \r\n");
+					{
+						strcpy(message, "200 Command okay.\r\n");
+						binary = 1;
+					}
 					else
 					{
 						buffer = strtok(NULL, "\r\n");
-						printf("recieved wrong parameter\n");
+						strcpy(message, "504 Command not implemented for that parameter.\r\n");
 						continue;
-						//strcpy(message, "504 \r\n");
 					}
-					printf("message: %s\n", message);
-					//sendsize = send(ConnectFD, (void*)message, sizeof(message), 0);
-					sendMessage(ConnectFD, (void*)message, sizeof(message));	
+				}
+				else if(!strcmp(command, "MODE"))
+				{
+					if(buffer[5] == 'S')
+					{
+						strcpy(message, "200 Command okay.\r\n");
+					}
+					else
+					{
+						buffer = strtok(NULL, "\r\n");
+						strcpy(message, "504 Command not implemented for that parameter.\r\n");
+						continue;
+					}
+				}
+				else if(!strcmp(command, "STRU"))
+				{
+					if(buffer[5] == 'F')
+					{
+						strcpy(message, "200 Command okay.\r\n");
+					}
+					else
+					{
+						buffer = strtok(NULL, "\r\n");
+						strcpy(message, "504 Command not implemented for that parameter.\r\n");
+						continue;
+					}
+				}
+				else if(!strcmp(command, "QUIT"))
+				{
+					quitLogical = 1;
+					break;
+				}
+				else if(!strcmp(command, "RETR"))
+				{
+					if(binary)
+					{
+						strcpy(message, "125 Data connection already open; transfer starting.\n");
+						//send(ConnectFD, message, 1024, 0);
+						sendMessage(ConnectFD, message, strlen(message));
+						memset(&message[0], 0, sizeof(message));
+
+						FILE *f = fopen(pathname, "r");
+						i = 0;
+						int c;
+						while(!feof(f)){
+							c = (int)fgetc(f);
+							if(c == -1)
+								break;
+							message[i++] = (char)c;
+						}
+						fclose(f);
+						printf("file: %s", message);
+						send(transferSocket, message, strlen(message), 0);
+						memset(&message[0], 0, sizeof(message));
+						close(transferSocket);
+						strcpy(message, "226 Closing data connection.\nRequested file action successful.\r\n");
+					}
+					else
+						strcpy(message, "451 Requested action aborted: local error in processing\r\n");
+				}
+				else if(!strcmp(command, "STOR"))
+				{
+					if(binary)
+					{
+						strcpy(message, "125 Data connection already open; transfer starting.\r\n");
+						send(ConnectFD, message, strlen(message), 0);
+						memset(&message[0], 0, sizeof(message));
+
+						i = 0;
+						while(1)
+						{
+							recsize = recv(transferSocket, &message[i], 1, 0);
+							printf("%c", message[i]);
+
+							if(recsize <= 0) 
+								break;
+							if(message[i] == -1)
+							{
+								message[i] = '\0';
+								break;
+							}
+							if(message[i] != '\r')
+								i++;
+						}
+						printf("message: %s\n", message);
+						FILE *f = fopen(pathname, "w");
+						int status = fwrite(&message[0], 1, i, f);
+						printf("status: %d\n", status);
+						fclose(f);
+						close(transferSocket);
+						strcpy(message, "226 Closing data connection.\nRequested file action successful.\r\n");
+					}
+					else
+						strcpy(message, "451 Requested action aborted: local error in processing\r\n");
+				}
+				else if(!strcmp(command, "NOOP"))
+				{
+					strcpy(message, "200 Command okay.\r\n");
 				}
 				else
 				{
 					strcpy(message, "502 \r\n");
-					printf("message: %s\n", message);
+					//printf("message: %s\n", message);
 					//sendsize = send(ConnectFD, (void*)message, sizeof(message), 0);
-					sendMessage(ConnectFD, (void*)message, sizeof(message));
+					//sendMessage(ConnectFD, (void*)message, sizeof(message));
 				}
 
 				/*strcpy(message, "220 Recieved\r\n");
@@ -261,18 +373,27 @@ int main(void)
 
 				buffer = strtok(NULL, "\r\n");
 			}
+
+			if(quitLogical)
+			{
+				quitLogical = 0;
+				break;
+			}
+
+			printf("message: %s", message);
+			send(ConnectFD, &message[0], strlen(message), 0);
 			printf("next...\n");
 
 		}
 
-		if (shutdown(ConnectFD, SHUT_RDWR) == -1) 
+		/*if (shutdown(ConnectFD, SHUT_RDWR) == -1) 
 		{
 			printf("in shutdown\n");
 			perror("shutdown failed");
 			close(ConnectFD);
 			close(SocketFD);
 			exit(EXIT_FAILURE);
-		}
+		}*/
 		close(ConnectFD);
 		printf("closed\n");
 	}
