@@ -185,7 +185,7 @@ int main(int argc, char* argv[])
 					{
 						strcpy(cmd, "ls -l ");
 						strcat(cmd, pathname);
-						strcat(cmd, "> temp.txt 2>error");
+						strcat(cmd, "> LIST.abcxyz 2>LISTerror.abcxyz");
 					}
 					//printf("cmd: %s\n", cmd);
 					FILE *f;
@@ -194,31 +194,44 @@ int main(int argc, char* argv[])
 					if(status == -1)
 						printf("system call failed\n");
 
-					//open output file and send contents of file byte by byte
-					f = fopen("LIST.abcxyz", "r");
-					i = 0;
 					char c;
-					while(!feof(f)){
-						c = fgetc(f);
-						if(c == -1)
-							break;
-						send(transferSocket, &c, 1, 0);
-					}
-					fclose(f);
-					//open list error file and send contents of file byte by byte
+					//open list error file
 					f = fopen("LISTerror.abcxyz", "r");
 					while(!feof(f))
 					{
 						c = fgetc(f);
-						send(transferSocket, &c, 1, 0);
+						break;
+						//send(transferSocket, &c, 1, 0);
 					}
 					fclose(f);
-					c = '\r'; //Let transfer data socket know we are finished
-					send(transferSocket, &c, 1, 0);
-					memset(&message[0], 0, sizeof(message));
-					close(transferSocket);
+					//c = '\r'; //Let transfer data socket know we are finished
+					//send(transferSocket, &c, 1, 0);
 					//Let client know file transfer has completed
-					strcpy(message, "226 File Transfer Complete\r\n");
+					if(c != -1)
+					{
+						c = '\r';
+						send(transferSocket, &c, 1, 0);
+						strcpy(message, "450 Requested file action not taken. Directory does not exist.\r\n");
+					}
+					else
+					{
+						//open output file and send contents of file byte by byte
+						f = fopen("LIST.abcxyz", "r");
+						i = 0;
+						while(!feof(f)){
+							c = fgetc(f);
+							if(c == -1)
+								break;
+							send(transferSocket, &c, 1, 0);
+						}
+						fclose(f);
+
+						//Send crlf
+						c = '\r';
+						send(transferSocket, &c, 1, 0);
+						strcpy(message, "226 File Transfer Complete\r\n");
+					}
+					close(transferSocket);
 						
 				}
 				else if(!strcmp(command, "PWD"))
@@ -357,19 +370,29 @@ int main(int argc, char* argv[])
 						//send(ConnectFD, message, 1024, 0);
 						sendMessage(ConnectFD, message, strlen(message));
 						memset(&message[0], 0, sizeof(message));
-						//Open specified file and send contents of file byte by byte
-						FILE *f = fopen(pathname, "r");
-						char c;
-						while(!feof(f)){
-							c = fgetc(f);
-							if(c == -1)
-								break;
-							send(transferSocket, &c, 1, 0);
+
+						//Check if file exists
+						if(access(pathname, F_OK) != -1)
+						{
+							//Open specified file and send contents of file byte by byte
+							FILE *f = fopen(pathname, "r");
+							char c;
+							while(!feof(f)){
+								c = fgetc(f);
+								if(c == -1)
+									break;
+								send(transferSocket, &c, 1, 0);
+							}
+							fclose(f);
+							close(transferSocket);
+							//Let client know we are done
+							strcpy(message, "226 Closing data connection. Requested file action successful.\r\n");
 						}
-						fclose(f);
-						close(transferSocket);
-						//Let client know we are done
-						strcpy(message, "226 Closing data connection. Requested file action successful.\r\n");
+						else
+						{
+							close(transferSocket);
+							strcpy(message, "450 Requested file action not taken. File does not exist.\r\n");
+						}
 					}
 					else //We are not in binary mode
 						strcpy(message, "451 Requested action aborted: local error in processing\r\n");
@@ -437,7 +460,7 @@ int main(int argc, char* argv[])
 			}
 
 			//Done executing client commands sent and sends message back
-			printf("message: %s", message);
+			//printf("message: %s", message);
 			send(ConnectFD, &message[0], strlen(message), 0);
 			//printf("next...\n");
 
